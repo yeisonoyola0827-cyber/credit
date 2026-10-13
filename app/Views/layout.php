@@ -11,6 +11,7 @@ $baseUrl = ($scriptDir === '/' || $scriptDir === '.' || empty($scriptDir)) ? '' 
     <meta name="theme-color" content="#5169B7">
     <meta name="description" content="Escuela A.L.O. Arcade: experiencia interactiva de formación, onboarding, evaluación y analítica de Aló Credit. Arquitectura MVC PHP + SPA.">
     <title>Escuela A.L.O. | Level up · Tu talento transforma</title>
+    <link rel="icon" type="image/png" href="<?= $baseUrl ?>/assets/logo.png">
     
     <!-- Hojas de Estilo Desacopladas -->
     <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/app.css">

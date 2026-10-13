@@ -57,6 +57,7 @@ const SPA = {
         const sidebar = document.getElementById('sidebar');
         sidebar.innerHTML = `
             <div class="brand-pane">
+                <img src="${window.APP_BASE_URL || ''}/assets/logo.png" alt="Aló Credit, logotipo oficial">
                 <div class="brand-bottom">ESCUELA <b>A.L.O.</b></div>
             </div>
 
@@ -121,22 +122,22 @@ const SPA = {
         const isAdmin = u.role === 'admin';
         const topbar = document.getElementById('topbar');
         topbar.innerHTML = `
-            <div>
-                <span class="topbar-greeting">¡Hola, ${u.name.split(' ')[0]}! 👋</span>
-                <span class="topbar-sub">${this.getChannelLabel(u.channel_code)}</span>
+            <div class="topbar-left">
+                <button class="hamburger" onclick="SPA.toggleSidebar()" aria-label="Abrir menú">☰</button>
+                <div>
+                    <span class="topbar-greeting">¡Hola, ${u.name.split(' ')[0]}! 👋</span>
+                    <span class="topbar-sub">${this.getChannelLabel(u.channel_code)}</span>
+                </div>
             </div>
             <div class="topbar-spacer"></div>
 
-            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
                 ${isAdmin ? `
-                    <button class="btn btn-small btn-primary" onclick="Admin.openUserModal()" title="Agregar nuevo colaborador">
-                        ➕ Usuario
-                    </button>
-                    <button class="btn btn-small btn-primary" style="background:linear-gradient(110deg, #12815f, #0c9376);" onclick="Admin.openCourseModal()" title="Publicar nuevo curso">
-                        ➕ Curso
-                    </button>
-                    <button class="btn btn-small btn-outline" onclick="SPA.navigate('admin')">
+                    <button class="btn btn-small ${this.currentPage==='admin'?'btn-primary':'btn-outline'}" onclick="SPA.navigate('admin')">
                         👑 Control Center
+                    </button>
+                    <button class="btn btn-small ${this.currentPage==='home'?'btn-primary':'btn-soft'}" onclick="SPA.navigate('home')">
+                        🎮 Vista Alumno
                     </button>
                 ` : ''}
 
@@ -144,16 +145,19 @@ const SPA = {
                     ${isAdmin ? '⚙️ Administrador' : '🎮 Modo Alumno'}
                 </span>
 
+                <!-- Selector rápido de usuario para pruebas demo -->
                 <div class="user-picker">
                     <div class="user-avatar">${u.name[0]}</div>
-                    <div>
-                        <div class="user-name-label">${u.name}</div>
-                        <small style="color:var(--muted); font-size:10px;">${u.email}</small>
-                    </div>
+                    <select id="switch-user-quick" onchange="Auth.quickLogin(this.value)" style="border:1px solid var(--line); background:#f7f8fd; border-radius:10px; padding:6px 10px; font-weight:750; font-size:11px; color:var(--ink); cursor:pointer;" title="Cambiar usuario de prueba">
+                        <option value="admin@alocredit.com" ${u.email==='admin@alocredit.com'?'selected':''}>👑 Admin Central</option>
+                        <option value="maria@alocredit.com" ${u.email==='maria@alocredit.com'?'selected':''}>🏪 María (Comercial)</option>
+                        <option value="carlos@alocredit.com" ${u.email==='carlos@alocredit.com'?'selected':''}>🎧 Carlos (Contact)</option>
+                        <option value="sofia@alocredit.com" ${u.email==='sofia@alocredit.com'?'selected':''}>💻 Sofía (Admin)</option>
+                    </select>
                 </div>
 
                 <button class="btn-logout" onclick="Auth.logout()" title="Cerrar Sesión">
-                    Cerrar Sesión ⎋
+                    ⎋ Salir
                 </button>
             </div>
         `;
@@ -195,29 +199,32 @@ const SPA = {
         root.innerHTML = `
             <div class="page-head">
                 <div>
-                    <span class="eyebrow">✨ UNIVERSO DE FORMACIÓN A.L.O.</span>
-                    <h1 style="margin:0">Bienvenido a tu Aventura</h1>
-                    <p>Canal Asignado: <b>${this.getChannelLabel(this.user.channel_code)}</b></p>
+                    <span class="eyebrow">✨ TU UNIVERSO DE APRENDIZAJE</span>
+                    <h1 style="margin:0">Bienvenido a Escuela A.L.O.</h1>
+                    <p>Aprendizaje · Liderazgo · Obsesión por el cliente · Canal: <b>${this.getChannelLabel(this.user.channel_code)}</b></p>
                 </div>
             </div>
 
             <div class="hero">
                 <div class="hero-content">
-                    <span class="hero-top">⭐ EDUTAINMENT · ALÓ CREDIT 2026</span>
+                    <span class="hero-top">⭐ A.L.O. ARCADE · EDUTAINMENT</span>
                     <h1>¡Sigue subiendo <em>de nivel!</em></h1>
                     <p>Aprende jugando con casos reales, responde microretos éticos y transforma tu talento en impacto para los clientes.</p>
                     <div class="hero-actions">
-                        ${onbCourse ? `<button class="btn btn-primary" onclick="CoursePlayer.startCourse('${onbCourse.id}')">🚀 Continuar Mi Onboarding</button>` : ''}
-                        <button class="btn btn-outline" style="background:#fff3; color:#fff; border-color:#fff6;" onclick="SPA.navigate('catalog')">Explorar Cursos</button>
+                        ${onbCourse ? `<button class="btn btn-primary" onclick="CoursePlayer.startCourse('${onbCourse.id}')">🚀 Continuar mi aventura</button>` : ''}
+                        <button class="btn btn-ghost-light" onclick="SPA.navigate('catalog')">📚 Explorar cursos</button>
                     </div>
                 </div>
-                <div class="hero-coin">🌟</div>
+                <img class="hero-avatar" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyODAiIGhlaWdodD0iMzIwIiB2aWV3Qm94PSIwIDAgMTYwIDE4MCIgc2hhcGUtcmVuZGVyaW5nPSJjcmlzcEVkZ2VzIj4KPGRlZnM+PGZpbHRlciBpZD0ic2hhZG93IiB4PSItMzAlIiB5PSItMzAlIiB3aWR0aD0iMTYwJSIgaGVpZ2h0PSIxNjAlIj48ZmVEcm9wU2hhZG93IGR4PSI0IiBkeT0iNyIgc3RkRGV2aWF0aW9uPSIyLjUiIGZsb29kLWNvbG9yPSIjM2U0YTYwIiBmbG9vZC1vcGFjaXR5PSIuMjUiLz48L2ZpbHRlcj48L2RlZnM+CjxnIGZpbHRlcj0idXJsKCNzaGFkb3cpIj4KPCEtLSBiYWNrcGFjayAtLT4gPHJlY3QgeD0iMjgiIHk9Ijg5IiB3aWR0aD0iMjUiIGhlaWdodD0iNDIiIGZpbGw9IiM1MTY5YjciLz48cmVjdCB4PSIyMiIgeT0iOTciIHdpZHRoPSIxMiIgaGVpZ2h0PSIzMiIgZmlsbD0iIzMwNDg4NCIvPgo8IS0tIHNob2VzIC0tPiA8cmVjdCB4PSI0OCIgeT0iMTUwIiB3aWR0aD0iMzEiIGhlaWdodD0iMTYiIGZpbGw9IiMzZTRhNjAiLz48cmVjdCB4PSI5MSIgeT0iMTUwIiB3aWR0aD0iMzEiIGhlaWdodD0iMTYiIGZpbGw9IiMzZTRhNjAiLz48cmVjdCB4PSI0MyIgeT0iMTYyIiB3aWR0aD0iMzkiIGhlaWdodD0iOSIgZmlsbD0iIzMwNDg4NCIvPjxyZWN0IHg9IjkxIiB5PSIxNjIiIHdpZHRoPSIzNiIgaGVpZ2h0PSI5IiBmaWxsPSIjMzA0ODg0Ii8+CjwhLS0gbGVncyAtLT4gPHJlY3QgeD0iNTEiIHk9IjEzMyIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI3IiBmaWxsPSIjM2U0YTYwIi8+PHJlY3QgeD0iODgiIHk9IjEzMyIgd2lkdGg9IjI1IiBoZWlnaHQ9IjI3IiBmaWxsPSIjM2U0YTYwIi8+CjwhLS0gdG9yc28gLS0+IDxyZWN0IHg9IjQzIiB5PSI5MCIgd2lkdGg9Ijc0IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjZmE4NTE0Ii8+PHJlY3QgeD0iNTUiIHk9Ijk3IiB3aWR0aD0iNTAiIGhlaWdodD0iMzMiIGZpbGw9IiNmZmYiLz48dGV4dCB4PSI2OCIgeT0iMTIxIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjIiIGZvbnQtd2VpZ2h0PSI5MDAiIGZpbGw9IiNmMTU4MjQiPkE8L3RleHQ+CjwhLS0gYXJtcyAtLT4gPHJlY3QgeD0iMjQiIHk9IjkxIiB3aWR0aD0iMjAiIGhlaWdodD0iMTgiIGZpbGw9IiNmYTg1MTQiLz48cmVjdCB4PSIxNyIgeT0iMTA0IiB3aWR0aD0iMjIiIGhlaWdodD0iMjEiIGZpbGw9IiNmNGFlNzYiLz48cmVjdCB4PSIxMTciIHk9IjkyIiB3aWR0aD0iMjEiIGhlaWdodD0iMjAiIGZpbGw9IiNmYTg1MTQiLz48cmVjdCB4PSIxMjMiIHk9IjgyIiB3aWR0aD0iMjEiIGhlaWdodD0iMjgiIGZpbGw9IiNmNGFlNzYiLz48cmVjdCB4PSIxMzMiIHk9IjY4IiB3aWR0aD0iMTQiIGhlaWdodD0iMjAiIGZpbGw9IiNmNGFlNzYiLz4KPCEtLSBuZWNrIC0tPiA8cmVjdCB4PSI2OCIgeT0iNzYiIHdpZHRoPSIyNyIgaGVpZ2h0PSIxOSIgZmlsbD0iI2Y0YWU3NiIvPgo8IS0tIGhhaXIgLS0+IDxyZWN0IHg9IjUzIiB5PSIyNCIgd2lkdGg9IjU2IiBoZWlnaHQ9IjU1IiBmaWxsPSIjNDgzNTJlIi8+PHJlY3QgeD0iNDUiIHk9IjM5IiB3aWR0aD0iMTQiIGhlaWdodD0iNDAiIGZpbGw9IiM0ODM1MmUiLz48cmVjdCB4PSIxMDYiIHk9IjM5IiB3aWR0aD0iMTUiIGhlaWdodD0iNDAiIGZpbGw9IiM0ODM1MmUiLz4KPCEtLSBmYWNlIC0tPiA8cmVjdCB4PSI1NiIgeT0iMzkiIHdpZHRoPSI1MiIgaGVpZ2h0PSI0NCIgZmlsbD0iI2Y1YmQ4OCIvPjxyZWN0IHg9IjUxIiB5PSI0OSIgd2lkdGg9IjEwIiBoZWlnaHQ9IjI4IiBmaWxsPSIjZjViZDg4Ii8+PHJlY3QgeD0iMTA0IiB5PSI1MiIgd2lkdGg9IjEwIiBoZWlnaHQ9IjI1IiBmaWxsPSIjZjViZDg4Ii8+CjxyZWN0IHg9IjY4IiB5PSI1OCIgd2lkdGg9IjciIGhlaWdodD0iOCIgZmlsbD0iIzNlNGE2MCIvPjxyZWN0IHg9IjkxIiB5PSI1OCIgd2lkdGg9IjciIGhlaWdodD0iOCIgZmlsbD0iIzNlNGE2MCIvPjxyZWN0IHg9Ijc5IiB5PSI3MyIgd2lkdGg9IjE1IiBoZWlnaHQ9IjQiIGZpbGw9IiNjOTZjNGEiLz4KPCEtLSBmcmluZ2UgLS0+IDxyZWN0IHg9IjU2IiB5PSIzMSIgd2lkdGg9IjU1IiBoZWlnaHQ9IjE1IiBmaWxsPSIjNDgzNTJlIi8+PHJlY3QgeD0iNTciIHk9IjQwIiB3aWR0aD0iMzEiIGhlaWdodD0iOCIgZmlsbD0iIzQ4MzUyZSIvPgo8IS0tIGhlYWRwaG9uZSBhcmMgLS0+IDxwYXRoIGQ9Ik01MCA0NHYtNXEwLTI4IDMyLTI4dDMyIDI4djUiIHN0cm9rZT0iIzUxNjliNyIgc3Ryb2tlLXdpZHRoPSI5IiBmaWxsPSJub25lIi8+PHJlY3QgeD0iNDMiIHk9IjQyIiB3aWR0aD0iMTAiIGhlaWdodD0iMjgiIHJ4PSIyIiBmaWxsPSIjNTE2OWI3Ii8+PHJlY3QgeD0iMTEyIiB5PSI0MiIgd2lkdGg9IjEwIiBoZWlnaHQ9IjI4IiByeD0iMiIgZmlsbD0iIzUxNjliNyIvPgo8L2c+CjxnIGZpbGw9IiNmZmQyNGMiPjxwYXRoIGQ9Ik0xNyAzNGw0IDkgMTAgMi04IDYgMyAxMC05LTUtOCA1IDItMTAtOC02IDExLTJ6Ii8+PHJlY3QgeD0iMTM2IiB5PSIxOSIgd2lkdGg9IjgiIGhlaWdodD0iOCIvPjxyZWN0IHg9IjEyNyIgeT0iMjgiIHdpZHRoPSI5IiBoZWlnaHQ9IjkiLz48cmVjdCB4PSIxNDQiIHk9IjI4IiB3aWR0aD0iOSIgaGVpZ2h0PSI5Ii8+PHJlY3QgeD0iMTM2IiB5PSIzNiIgd2lkdGg9IjgiIGhlaWdodD0iOCIvPjwvZz4KPC9zdmc+Cg==" alt="Exploradora A.L.O. de estilo pixel art">
+                <span class="hero-coin">◉</span>
+                <span class="hero-coin two">✦</span>
+                <span class="hero-star">🌟</span>
             </div>
 
             <div class="section-head">
                 <div>
-                    <h2>Tu Tablero de Mando</h2>
-                    <p>Progreso correspondiente a tu canal formativo.</p>
+                    <h2>Tu Tablero de Jugador</h2>
+                    <p>Métricas de aprendizaje y avance correspondientes a tu perfil</p>
                 </div>
             </div>
 
@@ -227,41 +234,116 @@ const SPA = {
                     <div>
                         <span class="kpi-label">Tiempo Activo</span>
                         <strong class="kpi-value">${Math.round(this.user.active_seconds/60)} min</strong>
-                        <span class="kpi-sub">En plataforma</span>
+                        <span class="kpi-sub">Tiempo estimado</span>
                     </div>
                 </div>
                 <div class="card kpi-card">
-                    <span class="kpi-icon gold">🌟</span>
+                    <span class="kpi-icon gold">🎯</span>
+                    <div>
+                        <span class="kpi-label">Nota Promedio</span>
+                        <strong class="kpi-value">${onbProg > 0 ? onbProg + '%' : '—'}</strong>
+                        <span class="kpi-sub">Evaluaciones registradas</span>
+                    </div>
+                </div>
+                <div class="card kpi-card">
+                    <span class="kpi-icon green">📚</span>
+                    <div>
+                        <span class="kpi-label">Rutas Activas</span>
+                        <strong class="kpi-value">${this.courses.length}</strong>
+                        <span class="kpi-sub">Cursos asignados</span>
+                    </div>
+                </div>
+                <div class="card kpi-card">
+                    <span class="kpi-icon gold">⭐</span>
                     <div>
                         <span class="kpi-label">Experiencia</span>
                         <strong class="kpi-value">${this.user.xp} XP</strong>
                         <span class="kpi-sub">Logros acumulados</span>
                     </div>
                 </div>
-                <div class="card kpi-card">
-                    <span class="kpi-icon green">🗺️</span>
-                    <div>
-                        <span class="kpi-label">Avance Onboarding</span>
-                        <strong class="kpi-value">${onbProg}%</strong>
-                        <span class="kpi-sub">Ruta de inducción</span>
+            </div>
+
+            <div class="home-body" style="margin-top:18px">
+                <div>
+                    <article class="card mission-card">
+                        <div class="card-header">
+                            <h3>🗺️ Mi ruta actual</h3>
+                            <span class="mini-badge orange">ONBOARDING</span>
+                        </div>
+                        <div class="mission-heading">
+                            <div class="mission-badge">🏪</div>
+                            <div>
+                                <h3>${onbCourse ? onbCourse.title : 'Onboarding'}</h3>
+                                <p>${onbProg}% completado</p>
+                            </div>
+                        </div>
+                        <div class="progress-track"><div class="progress-fill green" style="width:${onbProg}%;"></div></div>
+                        <div class="progress-row"><span>Avance de tu onboarding</span><b>${onbProg}%</b></div>
+                        <div class="mini-path">
+                            <div class="path-step"><div class="step-cube ${onbProg>=20?'done':'now'}">${onbProg>=20?'✓':'1'}</div><small>Alistamiento</small></div>
+                            <div class="path-step"><div class="step-cube ${onbProg>=40?'done':onbProg>=20?'now':''}">${onbProg>=40?'✓':'2'}</div><small>Identidad</small></div>
+                            <div class="path-step"><div class="step-cube ${onbProg>=60?'done':onbProg>=40?'now':''}">${onbProg>=60?'✓':'3'}</div><small>Práctica</small></div>
+                            <div class="path-step"><div class="step-cube ${onbProg>=80?'done':onbProg>=60?'now':''}">${onbProg>=80?'✓':'4'}</div><small>Canguro</small></div>
+                            <div class="path-step"><div class="step-cube ${onbProg===100?'done':onbProg>=80?'now':''}">${onbProg===100?'✓':'5'}</div><small>Clínicas</small></div>
+                        </div>
+                        ${onbCourse ? `<button class="btn btn-primary btn-wide" onclick="CoursePlayer.startCourse('${onbCourse.id}')">Continuar ruta →</button>` : ''}
+                    </article>
+
+                    <div class="section-head" style="margin-top:22px;">
+                        <div>
+                            <h2>Los tres pilares A.L.O.</h2>
+                            <p>Una escuela, tres fuerzas que mueven el desarrollo</p>
+                        </div>
+                    </div>
+                    <div class="pillar-grid">
+                        <div class="pillar-card">
+                            <span class="pillar-symbol">🧠</span><b>Aprendizaje</b><small>Dominar el rol, practicar y corregir con evidencia.</small>
+                        </div>
+                        <div class="pillar-card l">
+                            <span class="pillar-symbol">🤝</span><b>Liderazgo</b><small>Convertir el aprendizaje en coaching y desarrollo.</small>
+                        </div>
+                        <div class="pillar-card o">
+                            <span class="pillar-symbol">⭐</span><b>Obsesión por el cliente</b><small>Escuchar, explicar con transparencia y generar valor.</small>
+                        </div>
                     </div>
                 </div>
-                <div class="card kpi-card">
-                    <span class="kpi-icon blue">📚</span>
-                    <div>
-                        <span class="kpi-label">Cursos en tu Canal</span>
-                        <strong class="kpi-value">${this.courses.length}</strong>
-                        <span class="kpi-sub">Disponibles</span>
-                    </div>
+
+                <div>
+                    <article class="card">
+                        <div class="card-header"><h3>🎮 Segmentación por Canales</h3></div>
+                        <p class="subtle" style="font-size:11px;margin-bottom:15px">Canal asignado a tu perfil de colaborador:</p>
+                        <div class="role-grid">
+                            <button class="role-tile ${this.user.channel_code==='cp'?'selected':''}">
+                                <span class="role-icon">🏪</span><b>Comercial</b>
+                            </button>
+                            <button class="role-tile ${this.user.channel_code==='cc'?'selected':''}">
+                                <span class="role-icon">🎧</span><b>Contact Center</b>
+                            </button>
+                            <button class="role-tile ${this.user.channel_code==='adm'?'selected':''}">
+                                <span class="role-icon">💻</span><b>Administrativos</b>
+                            </button>
+                        </div>
+                    </article>
+
+                    <article class="card" style="margin-top:16px">
+                        <div class="card-header"><h3>🏆 Tu recompensa</h3></div>
+                        <div class="xp-card">
+                            <span>🌟</span>
+                            <div><b>${this.user.xp} XP acumulados</b><small>Nivel ${Math.floor(this.user.xp/500)+1} · Tu talento transforma</small></div>
+                        </div>
+                        <div class="progress-track"><div class="progress-fill" style="width:${(this.user.xp % 500) / 5}%;"></div></div>
+                        <div class="progress-row"><small>Siguiente nivel</small><b>${500 - (this.user.xp % 500)} XP restantes</b></div>
+                        <button class="btn btn-soft btn-wide" style="margin-top:17px" onclick="SPA.navigate('badges')">Ver mis logros y diplomas →</button>
+                    </article>
                 </div>
             </div>
 
-            <div class="section-head">
+            <div class="section-head" style="margin-top:28px;">
                 <div>
-                    <h2>Cursos de tu Canal</h2>
-                    <p>Contenidos diseñados específicamente para tu rol y responsabilidades.</p>
+                    <h2>Formación continua para tu rol</h2>
+                    <p>Microretos, casos y aprendizaje aplicable según tu canal</p>
                 </div>
-                <button class="btn btn-ghost" onclick="SPA.navigate('catalog')">Ver Todos →</button>
+                <button class="btn btn-ghost" onclick="SPA.navigate('catalog')">Ver catálogo completo →</button>
             </div>
 
             <div class="course-grid">
@@ -460,7 +542,9 @@ const SPA = {
     }
 };
 
-// Iniciar aplicación al cargar el DOM
-document.addEventListener('DOMContentLoaded', () => {
+// Iniciar aplicación al cargar el DOM o de inmediato si ya está listo
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => { Auth.init(); });
+} else {
     Auth.init();
-});
+}

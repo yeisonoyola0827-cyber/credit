@@ -25,7 +25,10 @@ const Auth = {
         root.innerHTML = `
             <div class="auth-wrapper">
                 <div class="auth-card">
-                    <div class="auth-brand">ESCUELA <b>A.L.O.</b></div>
+                    <div style="background:#fff; border-radius:18px; padding:10px 14px; margin-bottom:16px; text-align:center;">
+                        <img src="${window.APP_BASE_URL || ''}/assets/logo.png" style="height:60px; width:auto; max-width:200px; display:block; margin:0 auto 6px;" alt="Aló Credit, logotipo oficial">
+                        <div class="brand-bottom">ESCUELA <b>A.L.O.</b></div>
+                    </div>
                     <div class="auth-tagline">Arcade de Aprendizaje · Aló Credit 2026</div>
 
                     <form id="login-form" class="auth-form">
