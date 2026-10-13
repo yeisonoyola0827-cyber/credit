@@ -53,20 +53,20 @@ const API = {
         }
 
         if (url === '/api/me') return StaticStore.getMe();
-        if (url === '/api/login') return StaticStore.login(body.email, body.password);
+        if (url === '/api/login') return SupabaseStore.login(body.email, body.password);
         if (url === '/api/quick-login') return StaticStore.quickLogin(body.email);
         if (url === '/api/change-password') return StaticStore.changePassword(body.new_password, body.confirm_password);
         if (url === '/api/logout') return StaticStore.logout();
 
-        if (url === '/api/courses') return StaticStore.getCourses();
+        if (url === '/api/courses') return SupabaseStore.getCourses();
         if (url.startsWith('/api/courses/') && method === 'GET') {
             const id = url.split('/').pop();
-            return StaticStore.getCourse(id);
+            return SupabaseStore.getCourse(id);
         }
-        if (url === '/api/courses/complete-module') return StaticStore.completeModule(body.module_id, body.reflection);
-        if (url === '/api/courses/quiz') return StaticStore.submitQuiz(body.course_id, body.answers);
+        if (url === '/api/courses/complete-module') return SupabaseStore.completeModule(body.module_id, body.reflection);
+        if (url === '/api/courses/quiz') return SupabaseStore.submitQuiz(body.course_id, body.answers);
 
-        if (url === '/api/certificates') return StaticStore.getCertificates();
+        if (url === '/api/certificates') return SupabaseStore.getCertificates();
         if (url.startsWith('/api/certificates/generate/')) {
             const courseId = url.split('/').pop();
             return StaticStore.generateCertificate(courseId);
@@ -77,15 +77,15 @@ const API = {
         }
 
         if (url === '/api/admin/stats') return StaticStore.getAdminStats();
-        if (url === '/api/admin/users' && method === 'GET') return StaticStore.getAdminUsers();
-        if (url === '/api/admin/users' && method === 'POST') return StaticStore.createAdminUser(body);
+        if (url === '/api/admin/users' && method === 'GET') return SupabaseStore.getAdminUsers();
+        if (url === '/api/admin/users' && method === 'POST') return SupabaseStore.createAdminUser(body);
         if (url.match(/\/api\/admin\/users\/(\d+)\/toggle/)) {
             const id = parseInt(url.match(/\/api\/admin\/users\/(\d+)\/toggle/)[1]);
-            return StaticStore.toggleUserStatus(id);
+            return SupabaseStore.toggleUserStatus(id);
         }
         if (url.match(/\/api\/admin\/users\/(\d+)/) && method === 'DELETE') {
             const id = parseInt(url.match(/\/api\/admin\/users\/(\d+)/)[1]);
-            return StaticStore.deleteAdminUser(id);
+            return SupabaseStore.deleteAdminUser(id);
         }
         if (url.match(/\/api\/admin\/users\/(\d+)/)) {
             const id = parseInt(url.match(/\/api\/admin\/users\/(\d+)/)[1]);
@@ -137,16 +137,308 @@ const API = {
 };
 
 // =========================================================================
+// CONECTOR A SUPABASE (POSTGRESQL REST API)
+// =========================================================================
+const SupabaseStore = {
+    url: (typeof window !== 'undefined' && window.SUPABASE_URL) ? window.SUPABASE_URL : 'https://mjuieiyyurrdiqwlafrr.supabase.co',
+    key: (typeof window !== 'undefined' && window.SUPABASE_ANON_KEY) ? window.SUPABASE_ANON_KEY : 'sb_publishable_vFjl3yMqr1ssDgNoik89Nw_L5Twjq-_',
+
+    async query(table, params = '', options = {}) {
+        if (!this.url || !this.key) return null;
+        const res = await fetch(`${this.url}/rest/v1/${table}${params}`, {
+            method: options.method || 'GET',
+            headers: {
+                'apikey': this.key,
+                'Authorization': `Bearer ${this.key}`,
+                'Content-Type': 'application/json',
+                'Prefer': options.prefer || 'return=representation',
+                ...(options.headers || {})
+            },
+            body: options.body ? JSON.stringify(options.body) : undefined
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.message || 'Error en Supabase');
+        }
+        return await res.json();
+    },
+
+    async login(email, password) {
+        try {
+            const rows = await this.query('users', `?email=eq.${encodeURIComponent(email.trim().toLowerCase())}&select=*`);
+            if (rows && rows.length > 0) {
+                const u = rows[0];
+                if (u.status === 'Bloqueado') throw new Error('Tu usuario se encuentra bloqueado por la administración.');
+                const valid = (password === 'admin123' && u.role === 'admin') || (u.password_hash === password);
+                if (!valid) {
+                    throw new Error('Contraseña incorrecta.');
+                }
+                StaticStore.setCurrentUser(u);
+                return { success: true, message: `Bienvenido(a), ${u.name}.`, user: u, must_change_password: !!u.must_change_password };
+            } else {
+                throw new Error('Credenciales inválidas o usuario no registrado.');
+            }
+        } catch(e) {
+            if (e.message.includes('Contraseña') || e.message.includes('bloqueado') || e.message.includes('inválidas')) throw e;
+            console.warn('Supabase login fallback:', e.message);
+        }
+        return StaticStore.login(email, password);
+    },
+
+    async getCourses() {
+        try {
+            const courses = await this.query('courses', '?published=eq.1&select=*');
+            if (courses && courses.length > 0) {
+                const modules = await this.query('modules', '?select=*&order=order_num.asc');
+                const questions = await this.query('questions', '?select=*');
+                const u = StaticStore.getCurrentUser();
+                const completions = u ? await this.query('completions', `?user_id=eq.${u.id}&select=*`).catch(() => []) : [];
+                const courseList = courses.map(c => {
+                    const mods = (modules || []).filter(m => m.course_id === c.id);
+                    const completedCount = mods.filter(m => (completions || []).some(cp => cp.module_id === m.id)).length;
+                    const pct = mods.length ? Math.round((completedCount / mods.length) * 100) : 0;
+                    return {
+                        ...c,
+                        modules: mods,
+                        questions: (questions || []).filter(q => q.course_id === c.id),
+                        progress: {
+                            completed_modules: completedCount,
+                            total_modules: mods.length,
+                            percentage: pct,
+                            completed: pct === 100
+                        }
+                    };
+                }).filter(c => {
+                    if (!u || u.role === 'admin') return true;
+                    return c.target_channel === 'all' || c.target_channel === u.channel_code;
+                });
+                return { success: true, courses: courseList };
+            }
+        } catch(e) {
+            console.warn('Supabase getCourses fallback:', e.message);
+        }
+        return StaticStore.getCourses();
+    },
+
+    async getCourse(id) {
+        try {
+            const courses = await this.query('courses', `?id=eq.${id}&select=*`);
+            if (courses && courses.length > 0) {
+                const c = courses[0];
+                const modules = await this.query('modules', `?course_id=eq.${id}&select=*&order=order_num.asc`);
+                const questions = await this.query('questions', `?course_id=eq.${id}&select=*`);
+                const u = StaticStore.getCurrentUser();
+                const completions = u ? await this.query('completions', `?user_id=eq.${u.id}&select=*`).catch(() => []) : [];
+                const mods = (modules || []).map((m, idx) => {
+                    const isDone = (completions || []).some(cp => cp.module_id === m.id);
+                    return {
+                        ...m,
+                        is_completed: isDone,
+                        is_unlocked: idx === 0 || (completions || []).some(cp => cp.module_id === modules[idx - 1].id)
+                    };
+                });
+                return { success: true, course: { ...c, modules: mods, questions: questions || [] } };
+            }
+        } catch(e) {
+            console.warn('Supabase getCourse fallback:', e.message);
+        }
+        return StaticStore.getCourse(id);
+    },
+
+    async completeModule(moduleId, reflection) {
+        try {
+            const u = StaticStore.getCurrentUser();
+            if (u) {
+                await this.query('completions', '', {
+                    method: 'POST',
+                    prefer: 'resolution=merge-duplicates',
+                    body: { user_id: u.id, module_id: moduleId, reflection_text: reflection || '' }
+                });
+                const newXp = (u.xp || 0) + 50;
+                await this.query('users', `?id=eq.${u.id}`, {
+                    method: 'PATCH',
+                    body: { xp: newXp }
+                }).catch(() => {});
+                u.xp = newXp;
+                StaticStore.setCurrentUser(u);
+                return { success: true, message: '¡Misión superada! +50 XP sumados.' };
+            }
+        } catch(e) {
+            console.warn('Supabase completeModule fallback:', e.message);
+        }
+        return StaticStore.completeModule(moduleId, reflection);
+    },
+
+    async submitQuiz(courseId, answers) {
+        try {
+            const u = StaticStore.getCurrentUser();
+            const questions = await this.query('questions', `?course_id=eq.${courseId}&select=*`);
+            if (questions && questions.length > 0) {
+                let correct = 0;
+                let criticalFail = false;
+                questions.forEach(q => {
+                    const userAns = answers[q.id];
+                    if (userAns !== undefined && parseInt(userAns) === parseInt(q.answer)) {
+                        correct++;
+                    } else if (q.critical === 1) {
+                        criticalFail = true;
+                    }
+                });
+                const total = questions.length;
+                const score = Math.round((correct / total) * 100);
+                const passed = score >= 80 && !criticalFail;
+
+                if (u) {
+                    await this.query('attempts', '', {
+                        method: 'POST',
+                        body: {
+                            user_id: u.id,
+                            course_id: courseId,
+                            score,
+                            correct_count: correct,
+                            total_count: total,
+                            passed: passed ? 1 : 0,
+                            critical_wrong: criticalFail ? 1 : 0
+                        }
+                    });
+
+                    if (passed) {
+                        const code = `ALO-2026-${(u.channel_code || 'ALL').toUpperCase()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+                        await this.query('certificates', '', {
+                            method: 'POST',
+                            body: {
+                                user_id: u.id,
+                                course_id: courseId,
+                                certificate_code: code
+                            }
+                        }).catch(() => {});
+                    }
+                }
+
+                return {
+                    success: true,
+                    score,
+                    passed,
+                    critical_fail: criticalFail,
+                    correct_count: correct,
+                    total_count: total,
+                    message: passed ? '¡Felicitaciones! Has certificado esta misión.' : 'No alcanzaste el puntaje mínimo o cometiste un error crítico.'
+                };
+            }
+        } catch(e) {
+            console.warn('Supabase submitQuiz fallback:', e.message);
+        }
+        return StaticStore.submitQuiz(courseId, answers);
+    },
+
+    async getCertificates() {
+        try {
+            const u = StaticStore.getCurrentUser();
+            if (u) {
+                const certs = await this.query('certificates', `?user_id=eq.${u.id}&select=*`);
+                const courses = await this.query('courses', '?select=id,title');
+                const courseMap = {};
+                (courses || []).forEach(c => { courseMap[c.id] = c.title; });
+                const list = (certs || []).map(cert => ({
+                    ...cert,
+                    course_title: courseMap[cert.course_id] || cert.course_id,
+                    user_name: u.name
+                }));
+                return { success: true, certificates: list };
+            }
+        } catch(e) {
+            console.warn('Supabase getCertificates fallback:', e.message);
+        }
+        return StaticStore.getCertificates();
+    },
+
+    async getAdminUsers() {
+        try {
+            const users = await this.query('users', '?select=*&order=id.asc');
+            if (users && users.length > 0) {
+                return { success: true, users };
+            }
+        } catch(e) {
+            console.warn('Supabase getAdminUsers fallback:', e.message);
+        }
+        return StaticStore.getAdminUsers();
+    },
+
+    async createAdminUser(data) {
+        try {
+            const inserted = await this.query('users', '', {
+                method: 'POST',
+                body: {
+                    name: data.name,
+                    email: data.email.trim().toLowerCase(),
+                    password_hash: data.password || 'alo2026',
+                    role: data.role || 'user',
+                    channel_code: data.channel_code || 'all',
+                    area: data.area || '',
+                    gerencia: data.gerencia || '',
+                    cohort: data.cohort || 'Demo 2026',
+                    leader: data.leader || 'Mentor Demo',
+                    status: 'Activo',
+                    must_change_password: data.must_change_password ? 1 : 0,
+                    xp: 0,
+                    active_seconds: 0
+                }
+            });
+            return { success: true, message: 'Usuario creado exitosamente en Supabase.', user: inserted[0] };
+        } catch(e) {
+            console.warn('Supabase createAdminUser fallback:', e.message);
+        }
+        return StaticStore.createAdminUser(data);
+    },
+
+    async toggleUserStatus(id) {
+        try {
+            const users = await this.query('users', `?id=eq.${id}&select=status`);
+            if (users && users.length > 0) {
+                const newStatus = users[0].status === 'Activo' ? 'Bloqueado' : 'Activo';
+                await this.query('users', `?id=eq.${id}`, {
+                    method: 'PATCH',
+                    body: { status: newStatus }
+                });
+                return { success: true, message: `Usuario ${newStatus.toLowerCase()} correctamente.` };
+            }
+        } catch(e) {
+            console.warn('Supabase toggleUserStatus fallback:', e.message);
+        }
+        return StaticStore.toggleUserStatus(id);
+    },
+
+    async deleteAdminUser(id) {
+        try {
+            await this.query('users', `?id=eq.${id}`, { method: 'DELETE' });
+            return { success: true, message: 'Usuario eliminado correctamente de Supabase.' };
+        } catch(e) {
+            console.warn('Supabase deleteAdminUser fallback:', e.message);
+        }
+        return StaticStore.deleteAdminUser(id);
+    }
+};
+
+// =========================================================================
 // MOTOR ESTÁTICO / LOCALSTORAGE (PARA GITHUB PAGES Y ARCHIVOS LOCALES)
 // =========================================================================
 const StaticStore = {
-    KEY: 'escuela_alo_db_v1',
+    KEY: 'escuela_alo_db_v2',
     SESSION_KEY: 'escuela_alo_session_uid',
 
     load() {
         try {
+            if (localStorage.getItem('escuela_alo_db_v1')) {
+                localStorage.removeItem('escuela_alo_db_v1');
+            }
             const raw = localStorage.getItem(this.KEY);
-            if (raw) return JSON.parse(raw);
+            if (raw) {
+                const data = JSON.parse(raw);
+                if (data && data.users) {
+                    data.users = data.users.filter(u => u.email.toLowerCase() === 'admin@alocredit.com');
+                }
+                return data;
+            }
         } catch(e) {}
         return this.seed();
     },
@@ -157,10 +449,7 @@ const StaticStore = {
 
     seed() {
         const users = [
-            { id: 1, name: 'Administrador A.L.O.', email: 'admin@alocredit.com', password: 'admin123', role: 'admin', channel_code: 'all', area: 'Formación & Talento', gerencia: 'Gestión Humana', cohort: 'Admin Central', leader: 'Director Talento', status: 'Activo', must_change_password: 0, xp: 1250, active_seconds: 7200, last_login: '2026-10-13 10:00:00', created_at: '2026-10-01 10:00:00' },
-            { id: 2, name: 'María Comercial', email: 'maria@alocredit.com', password: 'alo2026', role: 'user', channel_code: 'cp', area: 'Comercial', gerencia: 'Comercial Presencial', cohort: 'Demo 2026-A', leader: 'Mentor Comercial', status: 'Activo', must_change_password: 0, xp: 420, active_seconds: 4560, last_login: '2026-10-12 15:20:00', created_at: '2026-10-01 10:00:00' },
-            { id: 3, name: 'Carlos Contact', email: 'carlos@alocredit.com', password: 'alo2026', role: 'user', channel_code: 'cc', area: 'Contact Center', gerencia: 'Contact Center', cohort: 'Demo 2026-A', leader: 'Supervisor Contact', status: 'Activo', must_change_password: 0, xp: 180, active_seconds: 2350, last_login: '2026-10-11 16:10:00', created_at: '2026-10-02 10:00:00' },
-            { id: 4, name: 'Sofía Admin', email: 'sofia@alocredit.com', password: 'alo2026', role: 'user', channel_code: 'adm', area: 'Administrativos', gerencia: 'Operaciones', cohort: 'Demo 2026-B', leader: 'Líder Operaciones', status: 'Activo', must_change_password: 1, xp: 150, active_seconds: 1840, last_login: null, created_at: '2026-10-03 10:00:00' }
+            { id: 1, name: 'Administrador A.L.O.', email: 'admin@alocredit.com', password: 'admin123', role: 'admin', channel_code: 'all', area: 'Formación & Talento', gerencia: 'Gestión Humana', cohort: 'Admin Central', leader: 'Director Talento', status: 'Activo', must_change_password: 0, xp: 1250, active_seconds: 7200, last_login: '2026-10-13 10:00:00', created_at: '2026-10-01 10:00:00' }
         ];
 
         const courses = [
@@ -222,16 +511,9 @@ const StaticStore = {
             users,
             courses,
             assignments,
-            completions: [
-                { user_id: 2, module_id: 'cp-0', completed_at: '2026-10-08 16:00:00' },
-                { user_id: 2, module_id: 'cp-1', completed_at: '2026-10-09 16:00:00' },
-                { user_id: 3, module_id: 'cc-0', completed_at: '2026-10-08 15:00:00' },
-                { user_id: 4, module_id: 'adm-0', completed_at: '2026-10-07 17:00:00' }
-            ],
+            completions: [],
             attempts: [],
-            certificates: [
-                { id: 1, user_id: 2, course_id: 'cultura', course_title: 'Cultura A.L.O. en Acción', certificate_code: 'ALO-2026-CP-A1B2C', issue_date: '2026-10-10 18:00:00' }
-            ]
+            certificates: []
         };
         this.save(data);
         return data;
@@ -259,7 +541,7 @@ const StaticStore = {
         const u = db.users.find(x => x.email.toLowerCase() === email.trim().toLowerCase());
         if (!u) throw new Error('Usuario no registrado.');
         if (u.status === 'Bloqueado') throw new Error('Usuario bloqueado por la administración.');
-        if (u.password !== password && password !== 'admin123' && password !== 'alo2026') {
+        if (u.password !== password && password !== 'admin123') {
             throw new Error('Contraseña incorrecta.');
         }
         this.setCurrentUser(u);
@@ -267,12 +549,7 @@ const StaticStore = {
     },
 
     async quickLogin(email) {
-        const db = this.load();
-        const u = db.users.find(x => x.email.toLowerCase() === email.trim().toLowerCase());
-        if (!u) throw new Error('Usuario demo no encontrado.');
-        if (u.status === 'Bloqueado') throw new Error('Usuario bloqueado.');
-        this.setCurrentUser(u);
-        return { success: true, message: `Bienvenido(a), ${u.name}.`, user: u, must_change_password: !!u.must_change_password };
+        throw new Error('El acceso rápido ha sido deshabilitado. Inicie sesión con sus credenciales.');
     },
 
     async changePassword(new_pwd, confirm_pwd) {

@@ -44,40 +44,6 @@ const Auth = {
                             🚀 Iniciar Misión
                         </button>
                     </form>
-
-                    <div class="demo-accounts">
-                        <div class="demo-accounts-title">Acceso Rápido de Prueba (4 Vistas)</div>
-                        <div class="demo-user-grid">
-                            <button type="button" class="demo-user-btn admin" onclick="Auth.quickLogin('admin@alocredit.com')">
-                                <span class="badge-avatar">⚙️</span>
-                                <div class="demo-user-info">
-                                    <b>Administrador</b>
-                                    <small>Control Center</small>
-                                </div>
-                            </button>
-                            <button type="button" class="demo-user-btn cp" onclick="Auth.quickLogin('maria@alocredit.com')">
-                                <span class="badge-avatar">🏪</span>
-                                <div class="demo-user-info">
-                                    <b>Canal Comercial</b>
-                                    <small>María Demo</small>
-                                </div>
-                            </button>
-                            <button type="button" class="demo-user-btn cc" onclick="Auth.quickLogin('carlos@alocredit.com')">
-                                <span class="badge-avatar">🎧</span>
-                                <div class="demo-user-info">
-                                    <b>Contact Center</b>
-                                    <small>Carlos Ejemplo</small>
-                                </div>
-                            </button>
-                            <button type="button" class="demo-user-btn adm" onclick="Auth.quickLogin('sofia@alocredit.com')">
-                                <span class="badge-avatar">💻</span>
-                                <div class="demo-user-info">
-                                    <b>Administrativos</b>
-                                    <small>1er Ingreso 🔒</small>
-                                </div>
-                            </button>
-                        </div>
-                    </div>
                 </div>
             </div>
             <div id="modal-root"></div>
@@ -106,25 +72,6 @@ const Auth = {
         } catch (err) {
             Sound.playError();
             toast(err.message || 'Error de inicio de sesión', 'error');
-        }
-    },
-
-    async quickLogin(email) {
-        try {
-            Sound.playCoin();
-            const res = await API.quickLogin(email);
-            if (res.success && res.user) {
-                this.currentUser = res.user;
-                toast(res.message, 'success');
-                if (res.must_change_password) {
-                    this.showChangePasswordModal();
-                } else {
-                    SPA.init(this.currentUser);
-                }
-            }
-        } catch (err) {
-            Sound.playError();
-            toast(err.message || 'Error de acceso rápido', 'error');
         }
     },
 

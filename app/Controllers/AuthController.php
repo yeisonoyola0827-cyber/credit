@@ -52,10 +52,9 @@ class AuthController {
             return;
         }
 
-        // Verificación de contraseña: password_verify o contraseñas demo conocidas
+        // Verificación de contraseña: password_verify o contraseña del administrador
         $valid = password_verify($password, $user['password_hash']) 
-            || ($password === 'admin123' && $user['role'] === 'admin')
-            || ($password === 'alo2026');
+            || ($password === 'admin123' && $user['role'] === 'admin');
 
         if (!$valid) {
             http_response_code(401);
@@ -80,49 +79,8 @@ class AuthController {
     }
 
     public function quickLogin(): void {
-        $input = json_decode(file_get_contents('php://input'), true) ?: $_POST;
-        $email = trim($input['email'] ?? '');
-
-        $allowedDemos = [
-            'admin@alocredit.com',
-            'maria@alocredit.com',
-            'carlos@alocredit.com',
-            'sofia@alocredit.com'
-        ];
-
-        if (!in_array(strtolower($email), $allowedDemos)) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Usuario demo no permitido.']);
-            return;
-        }
-
-        $user = User::findByEmail($email);
-        if (!$user) {
-            http_response_code(404);
-            echo json_encode(['success' => false, 'message' => 'Usuario demo no encontrado.']);
-            return;
-        }
-
-        if ($user['status'] === 'Bloqueado') {
-            http_response_code(403);
-            echo json_encode(['success' => false, 'message' => 'Este usuario se encuentra bloqueado.']);
-            return;
-        }
-
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-        $_SESSION['user_id'] = $user['id'];
-        User::recordLogin($user['id']);
-
-        $cleanUser = User::findById($user['id']);
-
-        echo json_encode([
-            'success' => true,
-            'message' => "Bienvenido(a), {$cleanUser['name']}.",
-            'user' => $cleanUser,
-            'must_change_password' => (bool)$cleanUser['must_change_password']
-        ]);
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'El acceso rápido ha sido deshabilitado. Ingrese con sus credenciales.']);
     }
 
     public function changePassword(): void {

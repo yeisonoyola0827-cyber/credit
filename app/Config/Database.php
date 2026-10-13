@@ -179,11 +179,8 @@ class Database {
             $chStmt->execute($ch);
         }
 
-        // 4 Usuarios demo:
-        // 1. Admin: admin@alocredit.com / admin123
-        // 2. Comercial: maria@alocredit.com / alo2026
-        // 3. Contact Center: carlos@alocredit.com / alo2026
-        // 4. Administrativos: sofia@alocredit.com / alo2026 (must_change_password = 1)
+        // Usuario Administrador:
+        // Admin: admin@alocredit.com / admin123
         $users = [
             [
                 'name' => 'Administrador A.L.O.',
@@ -199,51 +196,6 @@ class Database {
                 'must_change_password' => 0,
                 'xp' => 1250,
                 'active_seconds' => 7200
-            ],
-            [
-                'name' => 'María Comercial',
-                'email' => 'maria@alocredit.com',
-                'password_hash' => password_hash('alo2026', PASSWORD_BCRYPT),
-                'role' => 'user',
-                'channel_code' => 'cp',
-                'area' => 'Comercial',
-                'gerencia' => 'Comercial Presencial',
-                'cohort' => 'Demo 2026-A',
-                'leader' => 'Mentor Comercial',
-                'status' => 'Activo',
-                'must_change_password' => 0,
-                'xp' => 420,
-                'active_seconds' => 4560
-            ],
-            [
-                'name' => 'Carlos Contact',
-                'email' => 'carlos@alocredit.com',
-                'password_hash' => password_hash('alo2026', PASSWORD_BCRYPT),
-                'role' => 'user',
-                'channel_code' => 'cc',
-                'area' => 'Contact Center',
-                'gerencia' => 'Contact Center',
-                'cohort' => 'Demo 2026-A',
-                'leader' => 'Supervisor Contact',
-                'status' => 'Activo',
-                'must_change_password' => 0,
-                'xp' => 180,
-                'active_seconds' => 2350
-            ],
-            [
-                'name' => 'Sofía Admin',
-                'email' => 'sofia@alocredit.com',
-                'password_hash' => password_hash('alo2026', PASSWORD_BCRYPT),
-                'role' => 'user',
-                'channel_code' => 'adm',
-                'area' => 'Administrativos',
-                'gerencia' => 'Operaciones',
-                'cohort' => 'Demo 2026-B',
-                'leader' => 'Líder Operaciones',
-                'status' => 'Activo',
-                'must_change_password' => 1, // Requiere cambio obligatorio en primer inicio
-                'xp' => 150,
-                'active_seconds' => 1840
             ]
         ];
 

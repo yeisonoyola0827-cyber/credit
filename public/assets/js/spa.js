@@ -145,15 +145,10 @@ const SPA = {
                     ${isAdmin ? '⚙️ Administrador' : '🎮 Modo Alumno'}
                 </span>
 
-                <!-- Selector rápido de usuario para pruebas demo -->
+                <!-- Información de usuario activo -->
                 <div class="user-picker">
                     <div class="user-avatar">${u.name[0]}</div>
-                    <select id="switch-user-quick" onchange="Auth.quickLogin(this.value)" style="border:1px solid var(--line); background:#f7f8fd; border-radius:10px; padding:6px 10px; font-weight:750; font-size:11px; color:var(--ink); cursor:pointer;" title="Cambiar usuario de prueba">
-                        <option value="admin@alocredit.com" ${u.email==='admin@alocredit.com'?'selected':''}>👑 Admin Central</option>
-                        <option value="maria@alocredit.com" ${u.email==='maria@alocredit.com'?'selected':''}>🏪 María (Comercial)</option>
-                        <option value="carlos@alocredit.com" ${u.email==='carlos@alocredit.com'?'selected':''}>🎧 Carlos (Contact)</option>
-                        <option value="sofia@alocredit.com" ${u.email==='sofia@alocredit.com'?'selected':''}>💻 Sofía (Admin)</option>
-                    </select>
+                    <span style="font-weight:750; font-size:11px; color:var(--ink); padding:0 4px;">${u.name}</span>
                 </div>
 
                 <button class="btn-logout" onclick="Auth.logout()" title="Cerrar Sesión">

@@ -32,6 +32,8 @@ $baseUrl = ($scriptDir === '/' || $scriptDir === '.' || empty($scriptDir)) ? '' 
     <!-- Inyección de configuración global para SPA -->
     <script>
         window.APP_BASE_URL = "<?= $baseUrl ?>";
+        window.SUPABASE_URL = "https://mjuieiyyurrdiqwlafrr.supabase.co";
+        window.SUPABASE_ANON_KEY = "sb_publishable_vFjl3yMqr1ssDgNoik89Nw_L5Twjq-_";
     </script>
 
     <!-- Scripts de la Aplicación -->
