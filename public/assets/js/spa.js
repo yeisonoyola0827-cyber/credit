@@ -57,7 +57,7 @@ const SPA = {
         const sidebar = document.getElementById('sidebar');
         sidebar.innerHTML = `
             <div class="brand-pane">
-                <img src="${window.APP_BASE_URL || ''}/assets/logo.png" alt="Aló Credit, logotipo oficial">
+                <img src="${(window.APP_BASE_URL && window.APP_BASE_URL !== '.') ? (window.APP_BASE_URL + '/assets/logo.png') : './assets/logo.png'}" alt="Aló Credit, logotipo oficial">
                 <div class="brand-bottom">ESCUELA <b>A.L.O.</b></div>
             </div>
 

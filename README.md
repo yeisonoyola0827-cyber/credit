@@ -4,17 +4,38 @@ Plataforma interactiva de formación, onboarding, evaluación y analítica para 
 
 ---
 
-## 🚀 Cómo Iniciar la Aplicación
+## 🚀 Cómo Ejecutar y Publicar la Aplicación
 
-### Opción 1: Con el archivo ejecutable por lotes (Recomendada en Windows)
+El proyecto cuenta con una **Arquitectura Híbrida / Dual Engine**:
+- **En la nube (GitHub Pages, Netlify, Vercel o Navegador directo)**: Funciona 100% estático e interactivo con base de datos simulada en `localStorage`.
+- **En servidor local o producción (PHP 8+, Apache, XAMPP, cPanel)**: Funciona con backend MVC completo en PHP y base de datos persistente SQLite / MySQL.
+
+---
+
+### Opción 1: 🌐 Publicación Gratis en GitHub Pages (En 1 Clic)
+1. Sube los archivos del proyecto a tu repositorio de GitHub (arrastra todos los archivos y carpetas, o descomprime `escuela_alo_completo.zip`).
+2. En tu repositorio de GitHub, ve a **Settings** (Configuración) > pestaña **Pages** (en el menú lateral izquierdo).
+3. En **Build and deployment**:
+   - **Source**: `Deploy from a branch`
+   - **Branch**: selecciona `main` (o `master`) y la carpeta `/ (root)`
+   - Haz clic en **Save**.
+4. ¡Listo! En 1-2 minutos GitHub te dará el link público:
+   👉 `https://tu-usuario.github.io/tu-repositorio/`
+   *(Funcionará todo: los 4 usuarios, misiones, evaluaciones, certificados y el panel administrador con persistencia local).*
+
+---
+
+### Opción 2: 💻 Con el archivo ejecutable local en Windows (Recomendada con PHP)
 Simplemente haz doble clic sobre el archivo:
 ```
 iniciar_servidor.bat
 ```
-Y abre en tu navegador web preferido:
+Y abre en tu navegador web:
 👉 **`http://localhost:8000`**
 
-### Opción 2: Desde la terminal / consola
+---
+
+### Opción 3: 🐧 Desde la terminal con PHP CLI
 Ejecuta en la raíz del proyecto:
 ```bash
 php -S localhost:8000 -t public
