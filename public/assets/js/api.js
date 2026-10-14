@@ -55,7 +55,7 @@ const API = {
         if (url === '/api/me') return StaticStore.getMe();
         if (url === '/api/login') return SupabaseStore.login(body.email, body.password);
         if (url === '/api/quick-login') return StaticStore.quickLogin(body.email);
-        if (url === '/api/change-password') return StaticStore.changePassword(body.new_password, body.confirm_password);
+        if (url === '/api/change-password') return SupabaseStore.changePassword(body.new_password, body.confirm_password);
         if (url === '/api/logout') return StaticStore.logout();
 
         if (url === '/api/courses') return SupabaseStore.getCourses();
@@ -169,9 +169,9 @@ const SupabaseStore = {
             if (rows && rows.length > 0) {
                 const u = rows[0];
                 if (u.status === 'Bloqueado') throw new Error('Tu usuario se encuentra bloqueado por la administración.');
-                const valid = (password === 'admin123' && u.role === 'admin') || (u.password_hash === password);
+                const valid = (password === 'admin123' && u.role === 'admin') || (u.password_hash === password) || (u.password === password);
                 if (!valid) {
-                    throw new Error('Contraseña incorrecta.');
+                    throw new Error('Contraseña errada. Por favor verifica tu contraseña e intenta nuevamente.');
                 }
                 StaticStore.setCurrentUser(u);
                 return { success: true, message: `Bienvenido(a), ${u.name}.`, user: u, must_change_password: !!u.must_change_password };
@@ -179,10 +179,65 @@ const SupabaseStore = {
                 throw new Error('Credenciales inválidas o usuario no registrado.');
             }
         } catch(e) {
-            if (e.message.includes('Contraseña') || e.message.includes('bloqueado') || e.message.includes('inválidas')) throw e;
+            if (e.message.includes('Contraseña') || e.message.includes('errada') || e.message.includes('bloqueado') || e.message.includes('inválidas')) throw e;
             console.warn('Supabase login fallback:', e.message);
         }
         return StaticStore.login(email, password);
+    },
+
+    async changePassword(new_pwd, confirm_pwd) {
+        const u = StaticStore.getCurrentUser();
+        if (!u || !u.id) {
+            throw new Error('Sesión no válida o expirada. Por favor inicia sesión nuevamente.');
+        }
+        if (!new_pwd || !confirm_pwd) {
+            throw new Error('Por favor completa todos los campos requeridos.');
+        }
+        if (new_pwd.length < 6) {
+            throw new Error('La contraseña debe tener al menos 6 caracteres.');
+        }
+        if (new_pwd !== confirm_pwd) {
+            throw new Error('Las contraseñas no coinciden. Por favor verifica que ambas sean idénticas.');
+        }
+        if (new_pwd === 'alo2026' || (u.password_hash && u.password_hash === new_pwd) || (u.password && u.password === new_pwd)) {
+            throw new Error('La nueva contraseña no puede ser igual a tu contraseña temporal.');
+        }
+
+        try {
+            await this.query('users', `?id=eq.${u.id}`, {
+                method: 'PATCH',
+                body: {
+                    password_hash: new_pwd,
+                    must_change_password: 0
+                }
+            });
+
+            u.password_hash = new_pwd;
+            u.password = new_pwd;
+            u.must_change_password = 0;
+            StaticStore.setCurrentUser(u);
+
+            // Sincronizar en base de datos local si existe
+            try {
+                const db = StaticStore.load();
+                const localUser = db.users.find(x => x.id === u.id || (u.email && x.email.toLowerCase() === u.email.toLowerCase()));
+                if (localUser) {
+                    localUser.password = new_pwd;
+                    localUser.password_hash = new_pwd;
+                    localUser.must_change_password = 0;
+                    StaticStore.save(db);
+                }
+            } catch(e){}
+
+            return {
+                success: true,
+                message: '¡Contraseña actualizada exitosamente! Bienvenido a tu Escuela A.L.O.',
+                user: u
+            };
+        } catch(e) {
+            console.warn('Supabase changePassword fallback:', e.message);
+            return StaticStore.changePassword(new_pwd, confirm_pwd);
+        }
     },
 
     async getCourses() {
@@ -411,6 +466,9 @@ const SupabaseStore = {
             if (data.leader) patch.leader = data.leader;
             if (data.status) patch.status = data.status;
             if (data.password) patch.password_hash = data.password;
+            if (typeof data.must_change_password !== 'undefined') {
+                patch.must_change_password = data.must_change_password ? 1 : 0;
+            }
             await this.query('users', `?id=eq.${id}`, {
                 method: 'PATCH',
                 body: patch
@@ -418,7 +476,11 @@ const SupabaseStore = {
             try {
                 const db = StaticStore.load();
                 const u = db.users.find(x => x.id === id);
-                if (u) { Object.assign(u, patch); StaticStore.save(db); }
+                if (u) {
+                    Object.assign(u, patch);
+                    if (patch.password_hash) u.password = patch.password_hash;
+                    StaticStore.save(db);
+                }
             } catch(e){}
             return { success: true, message: 'Usuario actualizado correctamente en Supabase.' };
         } catch(e) {
@@ -714,10 +776,11 @@ const StaticStore = {
     async login(email, password) {
         const db = this.load();
         const u = db.users.find(x => x.email.toLowerCase() === email.trim().toLowerCase());
-        if (!u) throw new Error('Usuario no registrado.');
-        if (u.status === 'Bloqueado') throw new Error('Usuario bloqueado por la administración.');
-        if (u.password !== password && password !== 'admin123') {
-            throw new Error('Contraseña incorrecta.');
+        if (!u) throw new Error('Credenciales inválidas o usuario no registrado.');
+        if (u.status === 'Bloqueado') throw new Error('Tu usuario se encuentra bloqueado por la administración.');
+        const match = (u.password === password) || (u.password_hash === password) || (password === 'admin123' && u.role === 'admin');
+        if (!match) {
+            throw new Error('Contraseña errada. Por favor verifica tu contraseña e intenta nuevamente.');
         }
         this.setCurrentUser(u);
         return { success: true, message: `Bienvenido(a), ${u.name}.`, user: u, must_change_password: !!u.must_change_password };
@@ -728,19 +791,35 @@ const StaticStore = {
     },
 
     async changePassword(new_pwd, confirm_pwd) {
-        if (!new_pwd || new_pwd.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres.');
-        if (new_pwd !== confirm_pwd) throw new Error('Las contraseñas no coinciden.');
         const u = this.getCurrentUser();
-        if (!u) throw new Error('Sesión no válida.');
+        if (!u) throw new Error('Sesión no válida o expirada. Por favor inicia sesión nuevamente.');
+        if (!new_pwd || !confirm_pwd) throw new Error('Por favor completa todos los campos requeridos.');
+        if (new_pwd.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres.');
+        if (new_pwd !== confirm_pwd) throw new Error('Las contraseñas no coinciden. Por favor verifica que ambas sean idénticas.');
+        if (new_pwd === 'alo2026' || (u.password && u.password === new_pwd) || (u.password_hash && u.password_hash === new_pwd)) {
+            throw new Error('La nueva contraseña no puede ser igual a tu contraseña temporal.');
+        }
+
         const db = this.load();
-        const user = db.users.find(x => x.id === u.id);
+        let user = db.users.find(x => x.id === u.id || (u.email && x.email.toLowerCase() === u.email.toLowerCase()));
         if (user) {
             user.password = new_pwd;
+            user.password_hash = new_pwd;
             user.must_change_password = 0;
             this.save(db);
             this.setCurrentUser(user);
+        } else {
+            u.password = new_pwd;
+            u.password_hash = new_pwd;
+            u.must_change_password = 0;
+            this.setCurrentUser(u);
+            user = u;
         }
-        return { success: true, message: 'Contraseña actualizada correctamente.' };
+        return {
+            success: true,
+            message: '¡Contraseña actualizada exitosamente! Bienvenido a tu Escuela A.L.O.',
+            user: user || u
+        };
     },
 
     async logout() {
@@ -1082,8 +1161,14 @@ const StaticStore = {
 
 // Notificaciones Toast
 function toast(message, type = '') {
-    const root = document.getElementById('toast-root');
-    if (!root) return;
+    let root = document.getElementById('toast-root');
+    if (!root) {
+        root = document.createElement('div');
+        root.id = 'toast-root';
+        root.setAttribute('aria-live', 'polite');
+        root.setAttribute('aria-atomic', 'true');
+        document.body.appendChild(root);
+    }
     const node = document.createElement('div');
     node.className = `toast ${type}`;
     node.textContent = message;

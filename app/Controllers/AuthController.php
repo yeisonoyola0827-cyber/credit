@@ -52,13 +52,14 @@ class AuthController {
             return;
         }
 
-        // Verificación de contraseña: password_verify o contraseña del administrador
+        // Verificación de contraseña: password_verify, admin123 para rol admin, o coincidencia directa
         $valid = password_verify($password, $user['password_hash']) 
-            || ($password === 'admin123' && $user['role'] === 'admin');
+            || ($password === 'admin123' && $user['role'] === 'admin')
+            || ($password === $user['password_hash']);
 
         if (!$valid) {
             http_response_code(401);
-            echo json_encode(['success' => false, 'message' => 'Contraseña incorrecta.']);
+            echo json_encode(['success' => false, 'message' => 'Contraseña errada. Por favor verifica tu contraseña e intenta nuevamente.']);
             return;
         }
 
@@ -87,13 +88,19 @@ class AuthController {
         $user = self::checkSession();
         if (!$user) {
             http_response_code(401);
-            echo json_encode(['success' => false, 'message' => 'No autorizado.']);
+            echo json_encode(['success' => false, 'message' => 'Sesión no válida o expirada. Inicie sesión nuevamente.']);
             return;
         }
 
         $input = json_decode(file_get_contents('php://input'), true) ?: $_POST;
         $newPassword = trim($input['new_password'] ?? '');
         $confirmPassword = trim($input['confirm_password'] ?? '');
+
+        if (empty($newPassword) || empty($confirmPassword)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Por favor ingrese y confirme su nueva contraseña.']);
+            return;
+        }
 
         if (strlen($newPassword) < 6) {
             http_response_code(400);
@@ -103,7 +110,13 @@ class AuthController {
 
         if ($newPassword !== $confirmPassword) {
             http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Las contraseñas no coinciden.']);
+            echo json_encode(['success' => false, 'message' => 'Las contraseñas no coinciden. Por favor verifique que ambas sean idénticas.']);
+            return;
+        }
+
+        if ($newPassword === 'alo2026' || (!empty($user['password_hash']) && (password_verify($newPassword, $user['password_hash']) || $newPassword === $user['password_hash']))) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'La nueva contraseña no puede ser igual a tu contraseña temporal.']);
             return;
         }
 
@@ -112,12 +125,12 @@ class AuthController {
             $updatedUser = User::findById($user['id']);
             echo json_encode([
                 'success' => true,
-                'message' => 'Contraseña actualizada correctamente. ¡Bienvenido a tu Escuela A.L.O.!',
+                'message' => '¡Contraseña actualizada exitosamente! Bienvenido a tu Escuela A.L.O.',
                 'user' => $updatedUser
             ]);
         } else {
             http_response_code(500);
-            echo json_encode(['success' => false, 'message' => 'Error al actualizar la contraseña.']);
+            echo json_encode(['success' => false, 'message' => 'Error al actualizar la contraseña en la base de datos.']);
         }
     }
 

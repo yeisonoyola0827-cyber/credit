@@ -31,22 +31,28 @@ const Auth = {
                     </div>
                     <div class="auth-tagline">Arcade de Aprendizaje · Aló Credit 2026</div>
 
+                    <div id="login-alert" class="auth-alert error" style="display:none;"></div>
+
                     <form id="login-form" class="auth-form">
                         <label>
                             <span>Correo Electrónico</span>
-                            <input type="email" id="login-email" required placeholder="tu.correo@alocredit.com">
+                            <input type="email" id="login-email" required placeholder="tu.correo@alocredit.com" autocomplete="username">
                         </label>
                         <label>
                             <span>Contraseña</span>
-                            <input type="password" id="login-password" required placeholder="••••••••">
+                            <div class="password-input-wrap">
+                                <input type="password" id="login-password" required placeholder="••••••••" autocomplete="current-password">
+                                <button type="button" class="btn-toggle-pwd" onclick="Auth.togglePasswordVisibility('login-password', this)" title="Ver u ocultar contraseña">👁️</button>
+                            </div>
                         </label>
-                        <button type="submit" class="btn btn-primary btn-auth-submit">
+                        <button type="submit" id="btn-login-submit" class="btn btn-primary btn-auth-submit">
                             🚀 Iniciar Misión
                         </button>
                     </form>
                 </div>
             </div>
             <div id="modal-root"></div>
+            <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
         `;
 
         document.getElementById('login-form').addEventListener('submit', (e) => this.handleLogin(e));
@@ -54,10 +60,34 @@ const Auth = {
 
     async handleLogin(e) {
         e.preventDefault();
-        const email = document.getElementById('login-email').value;
-        const password = document.getElementById('login-password').value;
+        const emailInput = document.getElementById('login-email');
+        const passwordInput = document.getElementById('login-password');
+        const alertBox = document.getElementById('login-alert');
+        const submitBtn = document.getElementById('btn-login-submit');
+
+        if (alertBox) {
+            alertBox.style.display = 'none';
+            alertBox.textContent = '';
+        }
+
+        const email = emailInput ? emailInput.value.trim() : '';
+        const password = passwordInput ? passwordInput.value : '';
+
+        if (!email || !password) {
+            const msg = 'Por favor ingresa tu correo y contraseña.';
+            if (alertBox) {
+                alertBox.textContent = msg;
+                alertBox.style.display = 'flex';
+            }
+            toast(msg, 'error');
+            return;
+        }
 
         try {
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = '🚀 Verificando credenciales...';
+            }
             Sound.playClick();
             const res = await API.login(email, password);
             if (res.success && res.user) {
@@ -71,7 +101,21 @@ const Auth = {
             }
         } catch (err) {
             Sound.playError();
-            toast(err.message || 'Error de inicio de sesión', 'error');
+            const msg = err.message || 'Error de inicio de sesión';
+            if (alertBox) {
+                alertBox.textContent = msg;
+                alertBox.style.display = 'flex';
+            }
+            if (passwordInput) {
+                passwordInput.focus();
+                passwordInput.select();
+            }
+            toast(msg, 'error');
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🚀 Iniciar Misión';
+            }
         }
     },
 
@@ -84,16 +128,25 @@ const Auth = {
                     <h2>Primer Ingreso Detectado</h2>
                     <p>Por seguridad de tu cuenta en Escuela A.L.O., debes actualizar tu contraseña temporal antes de comenzar.</p>
 
+                    <div id="change-pwd-alert" class="auth-alert error" style="display:none;"></div>
+
                     <form id="change-password-form" class="auth-form" onsubmit="Auth.handleChangePassword(event)">
                         <label>
                             <span>Nueva Contraseña (mínimo 6 caracteres)</span>
-                            <input type="password" id="new-password" required minlength="6" placeholder="Ingresa tu nueva clave">
+                            <div class="password-input-wrap">
+                                <input type="password" id="new-password" required minlength="6" placeholder="Ingresa tu nueva clave" autocomplete="new-password" oninput="Auth.checkPasswordMatch()">
+                                <button type="button" class="btn-toggle-pwd" onclick="Auth.togglePasswordVisibility('new-password', this)" title="Ver u ocultar contraseña">👁️</button>
+                            </div>
                         </label>
                         <label>
                             <span>Confirmar Nueva Contraseña</span>
-                            <input type="password" id="confirm-password" required minlength="6" placeholder="Repite tu nueva clave">
+                            <div class="password-input-wrap">
+                                <input type="password" id="confirm-password" required minlength="6" placeholder="Repite tu nueva clave" autocomplete="new-password" oninput="Auth.checkPasswordMatch()">
+                                <button type="button" class="btn-toggle-pwd" onclick="Auth.togglePasswordVisibility('confirm-password', this)" title="Ver u ocultar contraseña">👁️</button>
+                            </div>
+                            <div id="password-match-hint" class="password-match-hint" style="display:none;"></div>
                         </label>
-                        <button type="submit" class="btn btn-primary btn-auth-submit">
+                        <button type="submit" id="btn-change-pwd-submit" class="btn btn-primary btn-auth-submit">
                             ✓ Guardar y Acceder a mi Canal
                         </button>
                     </form>
@@ -102,30 +155,110 @@ const Auth = {
         `;
     },
 
+    checkPasswordMatch() {
+        const newPwd = document.getElementById('new-password')?.value || '';
+        const confirmPwd = document.getElementById('confirm-password')?.value || '';
+        const hint = document.getElementById('password-match-hint');
+        if (!hint) return;
+
+        if (!confirmPwd) {
+            hint.style.display = 'none';
+            return;
+        }
+
+        hint.style.display = 'flex';
+        if (newPwd === confirmPwd) {
+            hint.className = 'password-match-hint success';
+            hint.textContent = '✓ Las contraseñas coinciden';
+        } else {
+            hint.className = 'password-match-hint error';
+            hint.textContent = '⚠️ Las contraseñas no coinciden';
+        }
+    },
+
+    togglePasswordVisibility(inputId, btn) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        if (input.type === 'password') {
+            input.type = 'text';
+            btn.textContent = '🙈';
+        } else {
+            input.type = 'password';
+            btn.textContent = '👁️';
+        }
+    },
+
     async handleChangePassword(e) {
         e.preventDefault();
-        const newPassword = document.getElementById('new-password').value;
-        const confirmPassword = document.getElementById('confirm-password').value;
+        const alertBox = document.getElementById('change-pwd-alert');
+        const submitBtn = document.getElementById('btn-change-pwd-submit');
+        const newPwdInput = document.getElementById('new-password');
+        const confirmPwdInput = document.getElementById('confirm-password');
+
+        if (alertBox) {
+            alertBox.style.display = 'none';
+            alertBox.textContent = '';
+        }
+
+        const newPassword = newPwdInput ? newPwdInput.value : '';
+        const confirmPassword = confirmPwdInput ? confirmPwdInput.value : '';
+
+        const showError = (msg) => {
+            Sound.playError();
+            if (alertBox) {
+                alertBox.textContent = msg;
+                alertBox.style.display = 'flex';
+            }
+            toast(msg, 'error');
+        };
+
+        if (!newPassword || !confirmPassword) {
+            showError('Por favor completa todos los campos requeridos.');
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            showError('La contraseña debe tener al menos 6 caracteres.');
+            newPwdInput?.focus();
+            return;
+        }
 
         if (newPassword !== confirmPassword) {
-            Sound.playError();
-            toast('Las contraseñas no coinciden.', 'error');
+            showError('Las contraseñas no coinciden. Por favor verifica que ambas sean idénticas.');
+            confirmPwdInput?.focus();
+            return;
+        }
+
+        if (newPassword === 'alo2026' || (this.currentUser && (this.currentUser.password === newPassword || this.currentUser.password_hash === newPassword))) {
+            showError('La nueva contraseña no puede ser igual a tu contraseña temporal.');
+            newPwdInput?.focus();
             return;
         }
 
         try {
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = '⏳ Guardando nueva contraseña...';
+            }
             Sound.playClick();
             const res = await API.changePassword(newPassword, confirmPassword);
-            if (res.success) {
+            if (res && res.success) {
                 Sound.playSuccess();
-                toast(res.message, 'success');
-                this.currentUser = res.user;
-                document.getElementById('modal-root').innerHTML = '';
+                toast(res.message || 'Contraseña actualizada exitosamente.', 'success');
+                this.currentUser = res.user || { ...(this.currentUser || {}), must_change_password: 0 };
+                const modalRoot = document.getElementById('modal-root');
+                if (modalRoot) modalRoot.innerHTML = '';
                 SPA.init(this.currentUser);
+            } else {
+                throw new Error(res?.message || 'Error al actualizar contraseña.');
             }
         } catch (err) {
-            Sound.playError();
-            toast(err.message || 'Error al actualizar contraseña', 'error');
+            showError(err.message || 'Error al actualizar contraseña');
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '✓ Guardar y Acceder a mi Canal';
+            }
         }
     },
 
