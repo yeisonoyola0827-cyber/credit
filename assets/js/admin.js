@@ -76,8 +76,20 @@ const Admin = {
     async renderDashboard(container) {
         try {
             const res = await API.getAdminStats();
-            const s = res.stats;
+            const s = (res && res.stats) ? res.stats : {};
             this.statsData = s;
+
+            const channels = s.channels || {
+                cp: { name: 'Comercial Presencial', short: 'Comercial', icon: '🏪', color: 'orange', user_count: 0, avg_progress: 0, avg_score: 0 },
+                cc: { name: 'Contact Center', short: 'Contact Center', icon: '🎧', color: 'purple', user_count: 0, avg_progress: 0, avg_score: 0 },
+                adm: { name: 'Administrativos', short: 'Administrativos', icon: '💻', color: 'green', user_count: 0, avg_progress: 0, avg_score: 0 }
+            };
+            const recentAttempts = Array.isArray(s.recent_attempts) ? s.recent_attempts : [];
+            const activeUsers = s.active_users ?? s.total_users ?? 0;
+            const totalUsers = s.total_users ?? 0;
+            const totalCourses = s.total_courses ?? 0;
+            const avgScore = s.avg_score ?? 0;
+            const totalHours = s.total_hours ?? 0;
 
             container.innerHTML = `
                 <div class="kpi-grid" style="margin-bottom:24px;">
@@ -85,7 +97,7 @@ const Admin = {
                         <span class="kpi-icon blue">👥</span>
                         <div>
                             <span class="kpi-label">Usuarios Activos</span>
-                            <strong class="kpi-value">${s.active_users} / ${s.total_users}</strong>
+                            <strong class="kpi-value">${activeUsers} / ${totalUsers}</strong>
                             <span class="kpi-sub">Total registrados</span>
                         </div>
                     </div>
@@ -93,7 +105,7 @@ const Admin = {
                         <span class="kpi-icon green">📚</span>
                         <div>
                             <span class="kpi-label">Cursos en Catálogo</span>
-                            <strong class="kpi-value">${s.total_courses}</strong>
+                            <strong class="kpi-value">${totalCourses}</strong>
                             <span class="kpi-sub">Activos en plataforma</span>
                         </div>
                     </div>
@@ -101,7 +113,7 @@ const Admin = {
                         <span class="kpi-icon gold">🎯</span>
                         <div>
                             <span class="kpi-label">Nota Promedio</span>
-                            <strong class="kpi-value">${s.avg_score}%</strong>
+                            <strong class="kpi-value">${avgScore}%</strong>
                             <span class="kpi-sub">Evaluaciones</span>
                         </div>
                     </div>
@@ -109,7 +121,7 @@ const Admin = {
                         <span class="kpi-icon blue">⏱️</span>
                         <div>
                             <span class="kpi-label">Horas Estimadas</span>
-                            <strong class="kpi-value">${s.total_hours} h</strong>
+                            <strong class="kpi-value">${totalHours} h</strong>
                             <span class="kpi-sub">Tiempo acumulado</span>
                         </div>
                     </div>
@@ -124,23 +136,23 @@ const Admin = {
                 </div>
 
                 <div class="level-grid" style="margin-bottom:28px;">
-                    ${Object.entries(s.channels).map(([code, ch]) => `
+                    ${Object.entries(channels).map(([code, ch]) => `
                         <div class="card level-card current">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <span class="mini-badge ${ch.color}" style="font-size:11px; font-weight:900;">${ch.icon} ${ch.short}</span>
-                                <span style="font-weight:900; font-size:12px;">${ch.user_count} asesores</span>
+                                <span class="mini-badge ${ch.color || 'blue'}" style="font-size:11px; font-weight:900;">${ch.icon || '📌'} ${ch.short || ch.name}</span>
+                                <span style="font-weight:900; font-size:12px;">${ch.user_count || 0} asesores</span>
                             </div>
-                            <h3 style="margin:16px 0 6px;">${ch.name}</h3>
+                            <h3 style="margin:16px 0 6px;">${ch.name || code}</h3>
                             <div style="margin:12px 0;">
                                 <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;">
                                     <span>Avance Promedio Onboarding:</span>
-                                    <b>${ch.avg_progress}%</b>
+                                    <b>${ch.avg_progress || 0}%</b>
                                 </div>
-                                <div class="progress-track" style="margin:0;"><div class="progress-fill green" style="width:${ch.avg_progress}%"></div></div>
+                                <div class="progress-track" style="margin:0;"><div class="progress-fill green" style="width:${ch.avg_progress || 0}%"></div></div>
                             </div>
                             <div style="display:flex; justify-content:space-between; font-size:11px; margin-top:8px;">
                                 <span>Promedio en Quizzes:</span>
-                                <b>${ch.avg_score}%</b>
+                                <b>${ch.avg_score || 0}%</b>
                             </div>
                         </div>
                     `).join('')}
@@ -166,13 +178,13 @@ const Admin = {
                             </tr>
                         </thead>
                         <tbody>
-                            ${s.recent_attempts.length ? s.recent_attempts.map(a => `
+                            ${recentAttempts.length ? recentAttempts.map(a => `
                                 <tr>
-                                    <td>${a.completed_at}</td>
-                                    <td><strong>${a.user_name}</strong></td>
-                                    <td><span class="mini-badge">${a.channel_code?.toUpperCase()}</span></td>
-                                    <td>${a.course_title}</td>
-                                    <td><strong>${a.score}%</strong> (${a.correct_count}/${a.total_count})</td>
+                                    <td>${a.completed_at || '-'}</td>
+                                    <td><strong>${a.user_name || 'Usuario'}</strong></td>
+                                    <td><span class="mini-badge">${(a.channel_code || '').toUpperCase()}</span></td>
+                                    <td>${a.course_title || '-'}</td>
+                                    <td><strong>${a.score || 0}%</strong> (${a.correct_count || 0}/${a.total_count || 0})</td>
                                     <td>
                                         <span class="mini-badge ${a.passed ? 'green' : 'red'}">
                                             ${a.passed ? 'Aprobado' : (a.critical_wrong ? 'Error Crítico' : 'Refuerzo')}
@@ -494,35 +506,37 @@ const Admin = {
                             </tr>
                         </thead>
                         <tbody>
-                            ${this.matrixData.map(c => `
+                            ${this.matrixData.map(c => {
+                                const ch = c.channels || { cp: c.cp || false, cc: c.cc || false, adm: c.adm || false };
+                                return `
                                 <tr>
                                     <td>
                                         <strong>${c.title}</strong>
-                                        <div style="font-size:10px; color:var(--muted);">${c.type}</div>
+                                        <div style="font-size:10px; color:var(--muted);">${c.type || ''}</div>
                                     </td>
                                     <td style="text-align:center;">
-                                        <button class="btn btn-small ${c.channels.cp ? 'btn-primary' : 'btn-outline'}" 
-                                            style="${c.channels.cp ? 'background:#12815f;' : 'opacity:0.6;'}"
+                                        <button class="btn btn-small ${ch.cp ? 'btn-primary' : 'btn-outline'}" 
+                                            style="${ch.cp ? 'background:#12815f;' : 'opacity:0.6;'}"
                                             onclick="Admin.toggleChannelAssignment('${c.id}', 'cp')">
-                                            ${c.channels.cp ? '✓ Activo' : '✕ Inactivo'}
+                                            ${ch.cp ? '✓ Activo' : '✕ Inactivo'}
                                         </button>
                                     </td>
                                     <td style="text-align:center;">
-                                        <button class="btn btn-small ${c.channels.cc ? 'btn-primary' : 'btn-outline'}" 
-                                            style="${c.channels.cc ? 'background:#7b78d3;' : 'opacity:0.6;'}"
+                                        <button class="btn btn-small ${ch.cc ? 'btn-primary' : 'btn-outline'}" 
+                                            style="${ch.cc ? 'background:#7b78d3;' : 'opacity:0.6;'}"
                                             onclick="Admin.toggleChannelAssignment('${c.id}', 'cc')">
-                                            ${c.channels.cc ? '✓ Activo' : '✕ Inactivo'}
+                                            ${ch.cc ? '✓ Activo' : '✕ Inactivo'}
                                         </button>
                                     </td>
                                     <td style="text-align:center;">
-                                        <button class="btn btn-small ${c.channels.adm ? 'btn-primary' : 'btn-outline'}" 
-                                            style="${c.channels.adm ? 'background:#fa8514;' : 'opacity:0.6;'}"
+                                        <button class="btn btn-small ${ch.adm ? 'btn-primary' : 'btn-outline'}" 
+                                            style="${ch.adm ? 'background:#fa8514;' : 'opacity:0.6;'}"
                                             onclick="Admin.toggleChannelAssignment('${c.id}', 'adm')">
-                                            ${c.channels.adm ? '✓ Activo' : '✕ Inactivo'}
+                                            ${ch.adm ? '✓ Activo' : '✕ Inactivo'}
                                         </button>
                                     </td>
                                 </tr>
-                            `).join('')}
+                            `}).join('')}
                         </tbody>
                     </table>
                 </div>

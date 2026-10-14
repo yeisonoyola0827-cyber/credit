@@ -14,9 +14,9 @@ $baseUrl = ($scriptDir === '/' || $scriptDir === '.' || empty($scriptDir)) ? '' 
     <link rel="icon" type="image/png" href="<?= $baseUrl ?>/assets/logo.png">
     
     <!-- Hojas de Estilo Desacopladas -->
-    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/app.css?v=2.0">
-    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/auth.css?v=2.0">
-    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/certificate.css?v=2.0">
+    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/app.css?v=2.2">
+    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/auth.css?v=2.2">
+    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/certificate.css?v=2.2">
 </head>
 <body>
     <div id="app-root">
@@ -37,11 +37,11 @@ $baseUrl = ($scriptDir === '/' || $scriptDir === '.' || empty($scriptDir)) ? '' 
     </script>
 
     <!-- Scripts de la Aplicación -->
-    <script src="<?= $baseUrl ?>/assets/js/sound.js?v=2.0"></script>
-    <script src="<?= $baseUrl ?>/assets/js/api.js?v=2.0"></script>
-    <script src="<?= $baseUrl ?>/assets/js/course-player.js?v=2.0"></script>
-    <script src="<?= $baseUrl ?>/assets/js/admin.js?v=2.0"></script>
-    <script src="<?= $baseUrl ?>/assets/js/auth.js?v=2.0"></script>
-    <script src="<?= $baseUrl ?>/assets/js/spa.js?v=2.0"></script>
+    <script src="<?= $baseUrl ?>/assets/js/sound.js?v=2.2"></script>
+    <script src="<?= $baseUrl ?>/assets/js/api.js?v=2.2"></script>
+    <script src="<?= $baseUrl ?>/assets/js/course-player.js?v=2.2"></script>
+    <script src="<?= $baseUrl ?>/assets/js/admin.js?v=2.2"></script>
+    <script src="<?= $baseUrl ?>/assets/js/auth.js?v=2.2"></script>
+    <script src="<?= $baseUrl ?>/assets/js/spa.js?v=2.2"></script>
 </body>
 </html>

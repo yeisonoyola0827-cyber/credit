@@ -76,7 +76,7 @@ const API = {
             return StaticStore.verifyCertificate(code);
         }
 
-        if (url === '/api/admin/stats') return StaticStore.getAdminStats();
+        if (url === '/api/admin/stats') return SupabaseStore.getAdminStats();
         if (url === '/api/admin/users' && method === 'GET') return SupabaseStore.getAdminUsers();
         if (url === '/api/admin/users' && method === 'POST') return SupabaseStore.createAdminUser(body);
         if (url.match(/\/api\/admin\/users\/(\d+)\/toggle/)) {
@@ -89,7 +89,7 @@ const API = {
         }
         if (url.match(/\/api\/admin\/users\/(\d+)/)) {
             const id = parseInt(url.match(/\/api\/admin\/users\/(\d+)/)[1]);
-            return StaticStore.updateAdminUser(id, body);
+            return SupabaseStore.updateAdminUser(id, body);
         }
 
         if (url === '/api/admin/courses' && method === 'POST') return StaticStore.saveCourse(body);
@@ -101,39 +101,39 @@ const API = {
             const id = url.match(/\/api\/admin\/courses\/([a-zA-Z0-9_-]+)/)[1];
             return StaticStore.deleteCourse(id);
         }
-        if (url === '/api/admin/assignments') return StaticStore.getAssignments();
-        if (url === '/api/admin/assignments/toggle') return StaticStore.toggleAssignment(body.course_id, body.channel_code);
+        if (url === '/api/admin/assignments') return SupabaseStore.getAssignments();
+        if (url === '/api/admin/assignments/toggle') return SupabaseStore.toggleAssignment(body.course_id, body.channel_code);
 
         throw new Error('Ruta no soportada en modo estático: ' + url);
     },
 
     // Métodos de Fachada
-    getMe() { return this.isStatic ? StaticStore.getMe() : this.request('/api/me'); },
-    login(email, password) { return this.isStatic ? StaticStore.login(email, password) : this.request('/api/login', { method: 'POST', body: { email, password } }); },
-    quickLogin(email) { return this.isStatic ? StaticStore.quickLogin(email) : this.request('/api/quick-login', { method: 'POST', body: { email } }); },
-    changePassword(new_password, confirm_password) { return this.isStatic ? StaticStore.changePassword(new_password, confirm_password) : this.request('/api/change-password', { method: 'POST', body: { new_password, confirm_password } }); },
-    logout() { return this.isStatic ? StaticStore.logout() : this.request('/api/logout', { method: 'POST' }); },
+    getMe() { return this.isStatic ? this.dispatchStatic('/api/me') : this.request('/api/me'); },
+    login(email, password) { return this.isStatic ? this.dispatchStatic('/api/login', { method: 'POST', body: { email, password } }) : this.request('/api/login', { method: 'POST', body: { email, password } }); },
+    quickLogin(email) { return this.isStatic ? this.dispatchStatic('/api/quick-login', { method: 'POST', body: { email } }) : this.request('/api/quick-login', { method: 'POST', body: { email } }); },
+    changePassword(new_password, confirm_password) { return this.isStatic ? this.dispatchStatic('/api/change-password', { method: 'POST', body: { new_password, confirm_password } }) : this.request('/api/change-password', { method: 'POST', body: { new_password, confirm_password } }); },
+    logout() { return this.isStatic ? this.dispatchStatic('/api/logout', { method: 'POST' }) : this.request('/api/logout', { method: 'POST' }); },
 
-    getCourses() { return this.isStatic ? StaticStore.getCourses() : this.request('/api/courses'); },
-    getCourse(id) { return this.isStatic ? StaticStore.getCourse(id) : this.request(`/api/courses/${id}`); },
-    completeModule(moduleId, reflection) { return this.isStatic ? StaticStore.completeModule(moduleId, reflection) : this.request('/api/courses/complete-module', { method: 'POST', body: { module_id: moduleId, reflection } }); },
-    submitQuiz(courseId, answers) { return this.isStatic ? StaticStore.submitQuiz(courseId, answers) : this.request('/api/courses/quiz', { method: 'POST', body: { course_id: courseId, answers } }); },
+    getCourses() { return this.isStatic ? this.dispatchStatic('/api/courses') : this.request('/api/courses'); },
+    getCourse(id) { return this.isStatic ? this.dispatchStatic(`/api/courses/${id}`) : this.request(`/api/courses/${id}`); },
+    completeModule(moduleId, reflection) { return this.isStatic ? this.dispatchStatic('/api/courses/complete-module', { method: 'POST', body: { module_id: moduleId, reflection } }) : this.request('/api/courses/complete-module', { method: 'POST', body: { module_id: moduleId, reflection } }); },
+    submitQuiz(courseId, answers) { return this.isStatic ? this.dispatchStatic('/api/courses/quiz', { method: 'POST', body: { course_id: courseId, answers } }) : this.request('/api/courses/quiz', { method: 'POST', body: { course_id: courseId, answers } }); },
 
-    getCertificates() { return this.isStatic ? StaticStore.getCertificates() : this.request('/api/certificates'); },
-    generateCertificate(courseId) { return this.isStatic ? StaticStore.generateCertificate(courseId) : this.request(`/api/certificates/generate/${courseId}`, { method: 'POST' }); },
-    verifyCertificate(code) { return this.isStatic ? StaticStore.verifyCertificate(code) : this.request(`/api/certificates/verify/${code}`); },
+    getCertificates() { return this.isStatic ? this.dispatchStatic('/api/certificates') : this.request('/api/certificates'); },
+    generateCertificate(courseId) { return this.isStatic ? this.dispatchStatic(`/api/certificates/generate/${courseId}`, { method: 'POST' }) : this.request(`/api/certificates/generate/${courseId}`, { method: 'POST' }); },
+    verifyCertificate(code) { return this.isStatic ? this.dispatchStatic(`/api/certificates/verify/${code}`) : this.request(`/api/certificates/verify/${code}`); },
 
-    getAdminStats() { return this.isStatic ? StaticStore.getAdminStats() : this.request('/api/admin/stats'); },
-    getAdminUsers() { return this.isStatic ? StaticStore.getAdminUsers() : this.request('/api/admin/users'); },
-    createAdminUser(data) { return this.isStatic ? StaticStore.createAdminUser(data) : this.request('/api/admin/users', { method: 'POST', body: data }); },
-    updateAdminUser(id, data) { return this.isStatic ? StaticStore.updateAdminUser(id, data) : this.request(`/api/admin/users/${id}`, { method: 'POST', body: data }); },
-    toggleUserStatus(id) { return this.isStatic ? StaticStore.toggleUserStatus(id) : this.request(`/api/admin/users/${id}/toggle`, { method: 'POST' }); },
-    deleteAdminUser(id) { return this.isStatic ? StaticStore.deleteAdminUser(id) : this.request(`/api/admin/users/${id}`, { method: 'DELETE' }); },
-    saveCourse(data) { return this.isStatic ? StaticStore.saveCourse(data) : this.request('/api/admin/courses', { method: 'POST', body: data }); },
-    toggleCourse(id) { return this.isStatic ? StaticStore.toggleCourse(id) : this.request(`/api/admin/courses/${id}/toggle`, { method: 'POST' }); },
-    deleteCourse(id) { return this.isStatic ? StaticStore.deleteCourse(id) : this.request(`/api/admin/courses/${id}`, { method: 'DELETE' }); },
-    getAssignments() { return this.isStatic ? StaticStore.getAssignments() : this.request('/api/admin/assignments'); },
-    toggleAssignment(course_id, channel_code) { return this.isStatic ? StaticStore.toggleAssignment(course_id, channel_code) : this.request('/api/admin/assignments/toggle', { method: 'POST', body: { course_id, channel_code } }); }
+    getAdminStats() { return this.isStatic ? this.dispatchStatic('/api/admin/stats') : this.request('/api/admin/stats'); },
+    getAdminUsers() { return this.isStatic ? this.dispatchStatic('/api/admin/users') : this.request('/api/admin/users'); },
+    createAdminUser(data) { return this.isStatic ? this.dispatchStatic('/api/admin/users', { method: 'POST', body: data }) : this.request('/api/admin/users', { method: 'POST', body: data }); },
+    updateAdminUser(id, data) { return this.isStatic ? this.dispatchStatic(`/api/admin/users/${id}`, { method: 'POST', body: data }) : this.request(`/api/admin/users/${id}`, { method: 'POST', body: data }); },
+    toggleUserStatus(id) { return this.isStatic ? this.dispatchStatic(`/api/admin/users/${id}/toggle`, { method: 'POST' }) : this.request(`/api/admin/users/${id}/toggle`, { method: 'POST' }); },
+    deleteAdminUser(id) { return this.isStatic ? this.dispatchStatic(`/api/admin/users/${id}`, { method: 'DELETE' }) : this.request(`/api/admin/users/${id}`, { method: 'DELETE' }); },
+    saveCourse(data) { return this.isStatic ? this.dispatchStatic('/api/admin/courses', { method: 'POST', body: data }) : this.request('/api/admin/courses', { method: 'POST', body: data }); },
+    toggleCourse(id) { return this.isStatic ? this.dispatchStatic(`/api/admin/courses/${id}/toggle`, { method: 'POST' }) : this.request(`/api/admin/courses/${id}/toggle`, { method: 'POST' }); },
+    deleteCourse(id) { return this.isStatic ? this.dispatchStatic(`/api/admin/courses/${id}`, { method: 'DELETE' }) : this.request(`/api/admin/courses/${id}`, { method: 'DELETE' }); },
+    getAssignments() { return this.isStatic ? this.dispatchStatic('/api/admin/assignments') : this.request('/api/admin/assignments'); },
+    toggleAssignment(course_id, channel_code) { return this.isStatic ? this.dispatchStatic('/api/admin/assignments/toggle', { method: 'POST', body: { course_id, channel_code } }) : this.request('/api/admin/assignments/toggle', { method: 'POST', body: { course_id, channel_code } }); }
 };
 
 // =========================================================================
@@ -366,29 +366,65 @@ const SupabaseStore = {
 
     async createAdminUser(data) {
         try {
+            const userPayload = {
+                name: data.name ? data.name.trim() : '',
+                email: data.email.trim().toLowerCase(),
+                password_hash: data.password || 'alo2026',
+                role: data.role || 'user',
+                channel_code: data.channel_code || 'all',
+                area: data.area || 'Operaciones',
+                gerencia: data.gerencia || 'General',
+                cohort: data.cohort || 'Demo 2026',
+                leader: data.leader || 'Mentor Demo',
+                status: 'Activo',
+                must_change_password: data.must_change_password ? 1 : 0,
+                xp: 0,
+                active_seconds: 0
+            };
             const inserted = await this.query('users', '', {
                 method: 'POST',
-                body: {
-                    name: data.name,
-                    email: data.email.trim().toLowerCase(),
-                    password_hash: data.password || 'alo2026',
-                    role: data.role || 'user',
-                    channel_code: data.channel_code || 'all',
-                    area: data.area || '',
-                    gerencia: data.gerencia || '',
-                    cohort: data.cohort || 'Demo 2026',
-                    leader: data.leader || 'Mentor Demo',
-                    status: 'Activo',
-                    must_change_password: data.must_change_password ? 1 : 0,
-                    xp: 0,
-                    active_seconds: 0
-                }
+                body: userPayload
             });
-            return { success: true, message: 'Usuario creado exitosamente en Supabase.', user: inserted[0] };
+            const newUser = (inserted && inserted[0]) ? inserted[0] : userPayload;
+            try {
+                const db = StaticStore.load();
+                if (!db.users.some(u => u.email.toLowerCase() === newUser.email.toLowerCase())) {
+                    db.users.push({ ...newUser, id: newUser.id || Date.now() });
+                    StaticStore.save(db);
+                }
+            } catch(e){}
+            return { success: true, message: 'Usuario creado exitosamente en Supabase.', user: newUser };
         } catch(e) {
             console.warn('Supabase createAdminUser fallback:', e.message);
         }
         return StaticStore.createAdminUser(data);
+    },
+
+    async updateAdminUser(id, data) {
+        try {
+            const patch = {};
+            if (data.name) patch.name = data.name.trim();
+            if (data.role) patch.role = data.role;
+            if (data.channel_code) patch.channel_code = data.channel_code;
+            if (data.area) patch.area = data.area;
+            if (data.gerencia) patch.gerencia = data.gerencia;
+            if (data.leader) patch.leader = data.leader;
+            if (data.status) patch.status = data.status;
+            if (data.password) patch.password_hash = data.password;
+            await this.query('users', `?id=eq.${id}`, {
+                method: 'PATCH',
+                body: patch
+            });
+            try {
+                const db = StaticStore.load();
+                const u = db.users.find(x => x.id === id);
+                if (u) { Object.assign(u, patch); StaticStore.save(db); }
+            } catch(e){}
+            return { success: true, message: 'Usuario actualizado correctamente en Supabase.' };
+        } catch(e) {
+            console.warn('Supabase updateAdminUser fallback:', e.message);
+        }
+        return StaticStore.updateAdminUser(id, data);
     },
 
     async toggleUserStatus(id) {
@@ -400,6 +436,11 @@ const SupabaseStore = {
                     method: 'PATCH',
                     body: { status: newStatus }
                 });
+                try {
+                    const db = StaticStore.load();
+                    const u = db.users.find(x => x.id === id);
+                    if (u) { u.status = newStatus; StaticStore.save(db); }
+                } catch(e){}
                 return { success: true, message: `Usuario ${newStatus.toLowerCase()} correctamente.` };
             }
         } catch(e) {
@@ -411,11 +452,131 @@ const SupabaseStore = {
     async deleteAdminUser(id) {
         try {
             await this.query('users', `?id=eq.${id}`, { method: 'DELETE' });
+            try {
+                const db = StaticStore.load();
+                db.users = db.users.filter(x => x.id !== id);
+                StaticStore.save(db);
+            } catch(e){}
             return { success: true, message: 'Usuario eliminado correctamente de Supabase.' };
         } catch(e) {
             console.warn('Supabase deleteAdminUser fallback:', e.message);
         }
         return StaticStore.deleteAdminUser(id);
+    },
+
+    async getAdminStats() {
+        try {
+            const [users, courses, completions, attempts, channels] = await Promise.all([
+                this.query('users', '?select=*').catch(() => []),
+                this.query('courses', '?published=eq.1&select=*').catch(() => []),
+                this.query('completions', '?select=*').catch(() => []),
+                this.query('attempts', '?select=*&order=completed_at.desc&limit=10').catch(() => []),
+                this.query('channels', '?code=neq.all&select=*').catch(() => [])
+            ]);
+
+            const totalUsers = users ? users.length : 0;
+            const activeUsers = users ? users.filter(u => u.status === 'Activo').length : 0;
+            const totalCourses = courses ? courses.length : 0;
+            const totalCompletions = completions ? completions.length : 0;
+
+            const scores = (attempts && attempts.length) ? attempts.map(a => a.score || 0) : [];
+            const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+
+            const totalSeconds = users ? users.reduce((acc, u) => acc + (u.active_seconds || 0), 0) : 0;
+            const totalHours = Math.round((totalSeconds / 3600) * 10) / 10;
+
+            const channelStats = {};
+            const chList = (channels && channels.length) ? channels : [
+                { code: 'cp', name: 'Comercial Presencial', short_name: 'Comercial', icon: '🏪', color: 'orange' },
+                { code: 'cc', name: 'Contact Center', short_name: 'Contact Center', icon: '🎧', color: 'purple' },
+                { code: 'adm', name: 'Administrativos', short_name: 'Administrativos', icon: '💻', color: 'green' }
+            ];
+
+            chList.forEach(ch => {
+                const chUsers = (users || []).filter(u => u.channel_code === ch.code);
+                const chAttempts = (attempts || []).filter(a => chUsers.some(u => u.id === a.user_id));
+                const chScores = chAttempts.map(a => a.score || 0);
+                const chAvgScore = chScores.length ? Math.round(chScores.reduce((a, b) => a + b, 0) / chScores.length) : 0;
+
+                channelStats[ch.code] = {
+                    name: ch.name,
+                    short: ch.short_name || ch.name,
+                    icon: ch.icon || '📌',
+                    color: ch.color || 'blue',
+                    user_count: chUsers.length,
+                    avg_progress: 0,
+                    avg_score: chAvgScore
+                };
+            });
+
+            return {
+                success: true,
+                stats: {
+                    total_users: totalUsers,
+                    active_users: activeUsers,
+                    total_courses: totalCourses,
+                    total_completions: totalCompletions,
+                    avg_score: avgScore,
+                    total_hours: totalHours,
+                    channels: channelStats,
+                    recent_attempts: attempts || []
+                }
+            };
+        } catch(e) {
+            console.warn('Supabase getAdminStats fallback:', e.message);
+        }
+        return StaticStore.getAdminStats();
+    },
+
+    async getAssignments() {
+        try {
+            const [courses, assignments] = await Promise.all([
+                this.query('courses', '?select=*&order=title.asc').catch(() => []),
+                this.query('course_assignments', '?select=*').catch(() => [])
+            ]);
+
+            if (courses && courses.length > 0) {
+                const matrix = courses.map(c => {
+                    const isAll = c.target_channel === 'all';
+                    const hasCP = isAll || c.target_channel === 'cp' || (assignments || []).some(a => a.course_id === c.id && a.channel_code === 'cp');
+                    const hasCC = isAll || c.target_channel === 'cc' || (assignments || []).some(a => a.course_id === c.id && a.channel_code === 'cc');
+                    const hasADM = isAll || c.target_channel === 'adm' || (assignments || []).some(a => a.course_id === c.id && a.channel_code === 'adm');
+                    return {
+                        id: c.id,
+                        course_id: c.id,
+                        title: c.title,
+                        type: c.type || 'Formación continua',
+                        target_channel: c.target_channel,
+                        channels: { cp: hasCP, cc: hasCC, adm: hasADM },
+                        cp: hasCP ? 1 : 0,
+                        cc: hasCC ? 1 : 0,
+                        adm: hasADM ? 1 : 0
+                    };
+                });
+                return { success: true, matrix };
+            }
+        } catch(e) {
+            console.warn('Supabase getAssignments fallback:', e.message);
+        }
+        return StaticStore.getAssignments();
+    },
+
+    async toggleAssignment(courseId, channelCode) {
+        try {
+            const existing = await this.query('course_assignments', `?course_id=eq.${courseId}&channel_code=eq.${channelCode}&select=*`);
+            if (existing && existing.length > 0) {
+                await this.query('course_assignments', `?course_id=eq.${courseId}&channel_code=eq.${channelCode}`, { method: 'DELETE' });
+            } else {
+                await this.query('course_assignments', '', {
+                    method: 'POST',
+                    body: { course_id: courseId, channel_code: channelCode, assigned_at: new Date().toISOString() }
+                });
+            }
+            return { success: true, message: 'Asignación de canal actualizada.' };
+        } catch(e) {
+            console.warn('Supabase toggleAssignment fallback:', e.message);
+        }
+        return StaticStore.toggleAssignment(courseId, channelCode);
     }
 };
 
@@ -425,6 +586,7 @@ const SupabaseStore = {
 const StaticStore = {
     KEY: 'escuela_alo_db_v2',
     SESSION_KEY: 'escuela_alo_session_uid',
+    SESSION_USER_KEY: 'escuela_alo_session_user',
 
     load() {
         try {
@@ -435,7 +597,8 @@ const StaticStore = {
             if (raw) {
                 const data = JSON.parse(raw);
                 if (data && data.users) {
-                    data.users = data.users.filter(u => u.email.toLowerCase() === 'admin@alocredit.com');
+                    const testEmails = ['maria@alocredit.com', 'carlos@alocredit.com', 'sofia@alocredit.com'];
+                    data.users = data.users.filter(u => !testEmails.includes(u.email.toLowerCase()));
                 }
                 return data;
             }
@@ -520,6 +683,13 @@ const StaticStore = {
     },
 
     getCurrentUser() {
+        const userJson = localStorage.getItem(this.SESSION_USER_KEY);
+        if (userJson) {
+            try {
+                const u = JSON.parse(userJson);
+                if (u && u.status === 'Activo') return u;
+            } catch(e) {}
+        }
         const uid = localStorage.getItem(this.SESSION_KEY);
         if (!uid) return null;
         const db = this.load();
@@ -527,8 +697,13 @@ const StaticStore = {
     },
 
     setCurrentUser(user) {
-        if (user) localStorage.setItem(this.SESSION_KEY, user.id.toString());
-        else localStorage.removeItem(this.SESSION_KEY);
+        if (user) {
+            localStorage.setItem(this.SESSION_KEY, user.id.toString());
+            localStorage.setItem(this.SESSION_USER_KEY, JSON.stringify(user));
+        } else {
+            localStorage.removeItem(this.SESSION_KEY);
+            localStorage.removeItem(this.SESSION_USER_KEY);
+        }
     },
 
     async getMe() {
@@ -696,13 +871,56 @@ const StaticStore = {
     // Admin endpoints
     async getAdminStats() {
         const db = this.load();
+        const users = db.users || [];
+        const courses = db.courses || [];
+        const completions = db.completions || [];
+        const attempts = db.attempts || [];
+
+        const totalUsers = users.length;
+        const activeUsers = users.filter(u => u.status === 'Activo').length;
+        const totalCourses = courses.length;
+        const totalCompletions = completions.length;
+
+        const scores = attempts.map(a => a.score || 0);
+        const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+        const totalSeconds = users.reduce((acc, u) => acc + (u.active_seconds || 0), 0);
+        const totalHours = Math.round((totalSeconds / 3600) * 10) / 10;
+
+        const chDefaults = [
+            { code: 'cp', name: 'Comercial Presencial', short: 'Comercial', icon: '🏪', color: 'orange' },
+            { code: 'cc', name: 'Contact Center', short: 'Contact Center', icon: '🎧', color: 'purple' },
+            { code: 'adm', name: 'Administrativos', short: 'Administrativos', icon: '💻', color: 'green' }
+        ];
+
+        const channelStats = {};
+        chDefaults.forEach(ch => {
+            const chUsers = users.filter(u => u.channel_code === ch.code);
+            const chAttempts = attempts.filter(a => chUsers.some(u => u.id === a.user_id));
+            const chScores = chAttempts.map(a => a.score || 0);
+            const chAvgScore = chScores.length ? Math.round(chScores.reduce((a, b) => a + b, 0) / chScores.length) : 0;
+
+            channelStats[ch.code] = {
+                name: ch.name,
+                short: ch.short,
+                icon: ch.icon,
+                color: ch.color,
+                user_count: chUsers.length,
+                avg_progress: 0,
+                avg_score: chAvgScore
+            };
+        });
+
         return {
             success: true,
             stats: {
-                total_users: db.users.length,
-                total_courses: db.courses.length,
-                total_completions: db.completions.length,
-                active_users_pct: 100
+                total_users: totalUsers,
+                active_users: activeUsers,
+                total_courses: totalCourses,
+                total_completions: totalCompletions,
+                avg_score: avgScore,
+                total_hours: totalHours,
+                channels: channelStats,
+                recent_attempts: attempts.slice(0, 10)
             }
         };
     },
@@ -824,14 +1042,22 @@ const StaticStore = {
 
     async getAssignments() {
         const db = this.load();
-        const matrix = db.courses.map(c => ({
-            course_id: c.id,
-            title: c.title,
-            target_channel: c.target_channel,
-            cp: (c.target_channel === 'all' || c.target_channel === 'cp') ? 1 : 0,
-            cc: (c.target_channel === 'all' || c.target_channel === 'cc') ? 1 : 0,
-            adm: (c.target_channel === 'all' || c.target_channel === 'adm') ? 1 : 0
-        }));
+        const matrix = db.courses.map(c => {
+            const hasCP = c.target_channel === 'all' || c.target_channel === 'cp';
+            const hasCC = c.target_channel === 'all' || c.target_channel === 'cc';
+            const hasADM = c.target_channel === 'all' || c.target_channel === 'adm';
+            return {
+                id: c.id,
+                course_id: c.id,
+                title: c.title,
+                type: c.type || 'Formación continua',
+                target_channel: c.target_channel,
+                channels: { cp: hasCP, cc: hasCC, adm: hasADM },
+                cp: hasCP ? 1 : 0,
+                cc: hasCC ? 1 : 0,
+                adm: hasADM ? 1 : 0
+            };
+        });
         return {
             success: true,
             matrix,
