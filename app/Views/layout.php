@@ -14,9 +14,9 @@ $baseUrl = ($scriptDir === '/' || $scriptDir === '.' || empty($scriptDir)) ? '' 
     <link rel="icon" type="image/png" href="<?= $baseUrl ?>/assets/logo.png">
     
     <!-- Hojas de Estilo Desacopladas -->
-    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/app.css?v=2.2">
-    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/auth.css?v=2.2">
-    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/certificate.css?v=2.2">
+    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/app.css?v=2.3">
+    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/auth.css?v=2.3">
+    <link rel="stylesheet" href="<?= $baseUrl ?>/assets/css/certificate.css?v=2.3">
 </head>
 <body>
     <div id="app-root">
@@ -28,6 +28,7 @@ $baseUrl = ($scriptDir === '/' || $scriptDir === '.' || empty($scriptDir)) ? '' 
             </div>
         </div>
     </div>
+    <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
 
     <!-- Inyección de configuración global para SPA -->
     <script>
@@ -37,11 +38,11 @@ $baseUrl = ($scriptDir === '/' || $scriptDir === '.' || empty($scriptDir)) ? '' 
     </script>
 
     <!-- Scripts de la Aplicación -->
-    <script src="<?= $baseUrl ?>/assets/js/sound.js?v=2.2"></script>
-    <script src="<?= $baseUrl ?>/assets/js/api.js?v=2.2"></script>
-    <script src="<?= $baseUrl ?>/assets/js/course-player.js?v=2.2"></script>
-    <script src="<?= $baseUrl ?>/assets/js/admin.js?v=2.2"></script>
-    <script src="<?= $baseUrl ?>/assets/js/auth.js?v=2.2"></script>
-    <script src="<?= $baseUrl ?>/assets/js/spa.js?v=2.2"></script>
+    <script src="<?= $baseUrl ?>/assets/js/sound.js?v=2.3"></script>
+    <script src="<?= $baseUrl ?>/assets/js/api.js?v=2.3"></script>
+    <script src="<?= $baseUrl ?>/assets/js/course-player.js?v=2.3"></script>
+    <script src="<?= $baseUrl ?>/assets/js/admin.js?v=2.3"></script>
+    <script src="<?= $baseUrl ?>/assets/js/auth.js?v=2.3"></script>
+    <script src="<?= $baseUrl ?>/assets/js/spa.js?v=2.3"></script>
 </body>
 </html>

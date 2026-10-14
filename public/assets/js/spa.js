@@ -5,9 +5,16 @@ const SPA = {
     courses: [],
 
     init(user) {
-        this.user = user;
+        this.user = {
+            ...user,
+            name: (user && user.name) ? user.name : ((user && user.email) ? user.email : 'Colaborador'),
+            xp: Number(user && user.xp) || 0,
+            active_seconds: Number(user && user.active_seconds) || 0,
+            role: (user && user.role) ? user.role : 'user',
+            channel_code: (user && user.channel_code) ? user.channel_code : 'all'
+        };
         this.renderShell();
-        if (user.role === 'admin') {
+        if (this.user.role === 'admin') {
             this.navigate('admin');
         } else {
             this.navigate('home');
@@ -25,8 +32,8 @@ const SPA = {
                     <footer class="app-footer">
                         <span>Escuela A.L.O. · Aló Credit 2026 · Arquitectura MVC PHP + SPA</span>
                         <div style="display:flex; gap:10px; align-items:center;">
-                            <span>Canal Activo: <b>${this.getChannelLabel(this.user.channel_code)}</b></span>
-                            <span class="mini-badge ${this.user.role === 'admin' ? 'gold' : 'blue'}">${this.user.role.toUpperCase()}</span>
+                            <span>Canal Activo: <b>${this.getChannelLabel(this.user.channel_code || 'all')}</b></span>
+                            <span class="mini-badge ${(this.user.role || 'user') === 'admin' ? 'gold' : 'blue'}">${(this.user.role || 'user').toUpperCase()}</span>
                         </div>
                     </footer>
                 </div>
@@ -118,15 +125,19 @@ const SPA = {
     },
 
     renderTopbar() {
-        const u = this.user;
+        const u = this.user || {};
         const isAdmin = u.role === 'admin';
+        const displayName = u.name || u.email || 'Colaborador';
+        const firstName = displayName.split(' ')[0] || displayName;
+        const initial = (firstName[0] || 'U').toUpperCase();
         const topbar = document.getElementById('topbar');
+        if (!topbar) return;
         topbar.innerHTML = `
             <div class="topbar-left">
                 <button class="hamburger" onclick="SPA.toggleSidebar()" aria-label="Abrir menú">☰</button>
                 <div>
-                    <span class="topbar-greeting">¡Hola, ${u.name.split(' ')[0]}! 👋</span>
-                    <span class="topbar-sub">${this.getChannelLabel(u.channel_code)}</span>
+                    <span class="topbar-greeting">¡Hola, ${firstName}! 👋</span>
+                    <span class="topbar-sub">${this.getChannelLabel(u.channel_code || 'all')}</span>
                 </div>
             </div>
             <div class="topbar-spacer"></div>
@@ -147,8 +158,8 @@ const SPA = {
 
                 <!-- Información de usuario activo -->
                 <div class="user-picker">
-                    <div class="user-avatar">${u.name[0]}</div>
-                    <span style="font-weight:750; font-size:11px; color:var(--ink); padding:0 4px;">${u.name}</span>
+                    <div class="user-avatar">${initial}</div>
+                    <span style="font-weight:750; font-size:11px; color:var(--ink); padding:0 4px;">${displayName}</span>
                 </div>
 
                 <button class="btn-logout" onclick="Auth.logout()" title="Cerrar Sesión">
@@ -163,34 +174,58 @@ const SPA = {
         this.currentPage = page;
 
         const root = document.getElementById('page-root');
-        root.innerHTML = `<div style="text-align:center; padding:50px;">Cargando...</div>`;
+        if (root) {
+            root.innerHTML = `<div style="text-align:center; padding:50px;">Cargando...</div>`;
+        }
 
-        if (page === 'admin') {
-            await Admin.init(tab);
-        } else if (page === 'home') {
-            await this.renderHome();
-        } else if (page === 'onboarding') {
-            await this.renderOnboarding();
-        } else if (page === 'catalog') {
-            await this.renderCatalog();
-        } else if (page === 'leadership') {
-            await this.renderLeadership();
-        } else if (page === 'evaluations') {
-            await this.renderEvaluations();
-        } else if (page === 'badges') {
-            await this.renderBadges();
+        try {
+            if (page === 'admin') {
+                await Admin.init(tab);
+            } else if (page === 'home') {
+                await this.renderHome();
+            } else if (page === 'onboarding') {
+                await this.renderOnboarding();
+            } else if (page === 'catalog') {
+                await this.renderCatalog();
+            } else if (page === 'leadership') {
+                await this.renderLeadership();
+            } else if (page === 'evaluations') {
+                await this.renderEvaluations();
+            } else if (page === 'badges') {
+                await this.renderBadges();
+            }
+        } catch (err) {
+            console.error('Error al navegar a la página:', page, err);
+            if (root) {
+                root.innerHTML = `
+                    <div style="text-align:center; padding:60px 20px; max-width:500px; margin:0 auto;">
+                        <div style="font-size:48px; margin-bottom:12px;">⚠️</div>
+                        <h2 style="margin-bottom:8px;">Ocurrió un problema al cargar esta sección</h2>
+                        <p style="color:var(--muted); font-size:13px; margin-bottom:20px;">${err.message || 'No fue posible cargar el contenido solicitado.'}</p>
+                        <button class="btn btn-primary" onclick="SPA.navigate('home')">🔄 Reintentar / Ir al Inicio</button>
+                    </div>
+                `;
+            }
         }
         this.renderSidebar();
     },
 
     async renderHome() {
-        const res = await API.getCourses();
-        this.courses = res.courses;
+        try {
+            const res = await API.getCourses();
+            this.courses = (res && res.courses) ? res.courses : [];
+        } catch (e) {
+            console.warn('Error cargando cursos en renderHome:', e);
+            this.courses = [];
+        }
 
         const onbCourse = this.courses.find(c => c.type === 'Onboarding') || this.courses[0];
         const onbProg = onbCourse?.progress?.percentage || 0;
+        const xp = Number(this.user.xp) || 0;
+        const activeMins = Math.round((Number(this.user.active_seconds) || 0) / 60);
 
         const root = document.getElementById('page-root');
+        if (!root) return;
         root.innerHTML = `
             <div class="page-head">
                 <div>
@@ -228,7 +263,7 @@ const SPA = {
                     <span class="kpi-icon blue">⏱️</span>
                     <div>
                         <span class="kpi-label">Tiempo Activo</span>
-                        <strong class="kpi-value">${Math.round(this.user.active_seconds/60)} min</strong>
+                        <strong class="kpi-value">${activeMins} min</strong>
                         <span class="kpi-sub">Tiempo estimado</span>
                     </div>
                 </div>
@@ -252,7 +287,7 @@ const SPA = {
                     <span class="kpi-icon gold">⭐</span>
                     <div>
                         <span class="kpi-label">Experiencia</span>
-                        <strong class="kpi-value">${this.user.xp} XP</strong>
+                        <strong class="kpi-value">${xp} XP</strong>
                         <span class="kpi-sub">Logros acumulados</span>
                     </div>
                 </div>
@@ -324,10 +359,10 @@ const SPA = {
                         <div class="card-header"><h3>🏆 Tu recompensa</h3></div>
                         <div class="xp-card">
                             <span>🌟</span>
-                            <div><b>${this.user.xp} XP acumulados</b><small>Nivel ${Math.floor(this.user.xp/500)+1} · Tu talento transforma</small></div>
+                            <div><b>${xp} XP acumulados</b><small>Nivel ${Math.floor(xp/500)+1} · Tu talento transforma</small></div>
                         </div>
-                        <div class="progress-track"><div class="progress-fill" style="width:${(this.user.xp % 500) / 5}%;"></div></div>
-                        <div class="progress-row"><small>Siguiente nivel</small><b>${500 - (this.user.xp % 500)} XP restantes</b></div>
+                        <div class="progress-track"><div class="progress-fill" style="width:${(xp % 500) / 5}%;"></div></div>
+                        <div class="progress-row"><small>Siguiente nivel</small><b>${500 - (xp % 500)} XP restantes</b></div>
                         <button class="btn btn-soft btn-wide" style="margin-top:17px" onclick="SPA.navigate('badges')">Ver mis logros y diplomas →</button>
                     </article>
                 </div>
@@ -379,23 +414,26 @@ const SPA = {
     },
 
     async renderOnboarding() {
-        const res = await API.getCourses();
-        const onbCourse = res.courses.find(c => c.type === 'Onboarding') || res.courses[0];
+        const res = await API.getCourses().catch(() => ({ courses: [] }));
+        const courses = (res && res.courses) ? res.courses : [];
+        const onbCourse = courses.find(c => c.type === 'Onboarding') || courses[0];
         if (!onbCourse) {
-            document.getElementById('page-root').innerHTML = '<div class="card">No hay curso de Onboarding asignado a tu canal.</div>';
+            const root = document.getElementById('page-root');
+            if (root) root.innerHTML = '<div class="card" style="padding:20px;">No hay curso de Onboarding asignado a tu canal actualmente.</div>';
             return;
         }
 
-        const fullRes = await API.getCourse(onbCourse.id);
-        const course = fullRes.course;
+        const fullRes = await API.getCourse(onbCourse.id).catch(() => ({ course: {} }));
+        const course = fullRes.course || onbCourse;
         const modules = course.modules || [];
 
         const root = document.getElementById('page-root');
+        if (!root) return;
         root.innerHTML = `
             <div class="page-head">
                 <div>
                     <span class="eyebrow">🗺️ RUTA DE BIENVENIDA · TU CANAL</span>
-                    <h1 style="margin:0">${course.title}</h1>
+                    <h1 style="margin:0">${course.title || 'Onboarding'}</h1>
                     <p>Secuencia estructurada desde el Día 0 hasta la habilitación operativa y clínica.</p>
                 </div>
                 <button class="btn btn-primary" onclick="CoursePlayer.startQuiz('${course.id}')">Presentar Evaluación Final</button>
@@ -404,10 +442,10 @@ const SPA = {
             <div class="level-grid">
                 ${modules.map((m, i) => `
                     <div class="card level-card ${m.completed ? 'finished' : 'current'}">
-                        <div class="level-num">NIVEL ${i} · ${m.subtitle}</div>
+                        <div class="level-num">NIVEL ${i} · ${m.subtitle || ''}</div>
                         <div class="level-large">${['🧰','🌈','🎯','🎮','⚡','🏆'][i] || '🎮'}</div>
-                        <h3>${m.title}</h3>
-                        <p style="font-size:11px; color:var(--muted); flex:1;">${m.story}</p>
+                        <h3>${m.title || 'Misión'}</h3>
+                        <p style="font-size:11px; color:var(--muted); flex:1;">${m.story || ''}</p>
                         <span class="mini-badge ${m.completed ? 'green' : 'orange'}" style="margin:10px 0;">
                             ${m.completed ? '✓ Misión Superada' : 'Disponible para Cursar'}
                         </span>
@@ -421,10 +459,11 @@ const SPA = {
     },
 
     async renderCatalog() {
-        const res = await API.getCourses();
-        const courses = res.courses;
+        const res = await API.getCourses().catch(() => ({ courses: [] }));
+        const courses = (res && res.courses) ? res.courses : [];
 
         const root = document.getElementById('page-root');
+        if (!root) return;
         root.innerHTML = `
             <div class="page-head">
                 <div>
@@ -441,10 +480,12 @@ const SPA = {
     },
 
     async renderLeadership() {
-        const res = await API.getCourses();
-        const lCourses = res.courses.filter(c => c.pillar === 'L' || c.type === 'Liderazgo');
+        const res = await API.getCourses().catch(() => ({ courses: [] }));
+        const courses = (res && res.courses) ? res.courses : [];
+        const lCourses = courses.filter(c => c.pillar === 'L' || c.type === 'Liderazgo');
 
         const root = document.getElementById('page-root');
+        if (!root) return;
         root.innerHTML = `
             <div class="page-head">
                 <div>
@@ -461,10 +502,11 @@ const SPA = {
     },
 
     async renderEvaluations() {
-        const res = await API.getCourses();
-        const courses = res.courses;
+        const res = await API.getCourses().catch(() => ({ courses: [] }));
+        const courses = (res && res.courses) ? res.courses : [];
 
         const root = document.getElementById('page-root');
+        if (!root) return;
         root.innerHTML = `
             <div class="page-head">
                 <div>
@@ -478,10 +520,10 @@ const SPA = {
                 ${courses.map(c => `
                     <div class="card" style="display:flex; justify-content:space-between; align-items:center; padding:18px 24px;">
                         <div style="display:flex; align-items:center; gap:16px;">
-                            <span style="font-size:32px;">${c.icon}</span>
+                            <span style="font-size:32px;">${c.icon || '🎯'}</span>
                             <div>
-                                <h3 style="margin:0;">${c.title}</h3>
-                                <small style="color:var(--muted);">${c.type} · Umbral mínimo 80%</small>
+                                <h3 style="margin:0;">${c.title || 'Evaluación'}</h3>
+                                <small style="color:var(--muted);">${c.type || 'Reto'} · Umbral mínimo 80%</small>
                             </div>
                         </div>
                         <button class="btn btn-primary" onclick="CoursePlayer.startQuiz('${c.id}')">Resolver Reto →</button>
@@ -492,10 +534,11 @@ const SPA = {
     },
 
     async renderBadges() {
-        const res = await API.getCertificates();
-        const certs = res.certificates || [];
+        const res = await API.getCertificates().catch(() => ({ certificates: [] }));
+        const certs = (res && res.certificates) ? res.certificates : [];
 
         const root = document.getElementById('page-root');
+        if (!root) return;
         root.innerHTML = `
             <div class="page-head">
                 <div>
@@ -510,12 +553,12 @@ const SPA = {
                     ${certs.map(cert => `
                         <div class="card" style="border:2px solid #fed8b1; background:#fffcf6; padding:24px;">
                             <span class="mini-badge gold">🎓 CERTIFICADO OFICIAL</span>
-                            <h3 style="margin:12px 0 6px;">${cert.course_title}</h3>
+                            <h3 style="margin:12px 0 6px;">${cert.course_title || 'Certificado'}</h3>
                             <div style="font-size:12px; font-family:monospace; color:var(--orange-hot); font-weight:900; margin-bottom:12px;">
                                 FOLIO: ${cert.certificate_code}
                             </div>
                             <div style="font-size:11px; color:var(--muted); margin-bottom:18px;">
-                                Fecha de emisión: ${cert.issue_date.split(' ')[0]}
+                                Fecha de emisión: ${cert.issue_date ? cert.issue_date.split(/[ T]/)[0] : 'Hoy'}
                             </div>
                             <button class="btn btn-primary btn-wide" onclick="CoursePlayer.showCertificate('${cert.certificate_code}')">
                                 📜 Ver / Imprimir Diploma

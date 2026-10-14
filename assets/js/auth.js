@@ -7,7 +7,8 @@ const Auth = {
             const data = await API.getMe();
             if (data.authenticated && data.user) {
                 this.currentUser = data.user;
-                if (data.user.must_change_password) {
+                const mustChange = Number(data.user.must_change_password) === 1 || data.user.must_change_password === true;
+                if (mustChange) {
                     this.showChangePasswordModal();
                 } else {
                     SPA.init(this.currentUser);
@@ -92,8 +93,12 @@ const Auth = {
             const res = await API.login(email, password);
             if (res.success && res.user) {
                 this.currentUser = res.user;
+                if (typeof StaticStore !== 'undefined') {
+                    StaticStore.setCurrentUser(res.user);
+                }
                 toast(res.message, 'success');
-                if (res.must_change_password) {
+                const mustChange = Number(res.must_change_password) === 1 || res.must_change_password === true || Number(res.user.must_change_password) === 1;
+                if (mustChange) {
                     this.showChangePasswordModal();
                 } else {
                     SPA.init(this.currentUser);
@@ -229,8 +234,8 @@ const Auth = {
             return;
         }
 
-        if (newPassword === 'alo2026' || (this.currentUser && (this.currentUser.password === newPassword || this.currentUser.password_hash === newPassword))) {
-            showError('La nueva contraseña no puede ser igual a tu contraseña temporal.');
+        if (newPassword.toLowerCase() === 'alo2026') {
+            showError('La nueva contraseña no puede ser igual a la contraseña temporal genérica (alo2026).');
             newPwdInput?.focus();
             return;
         }
@@ -245,7 +250,12 @@ const Auth = {
             if (res && res.success) {
                 Sound.playSuccess();
                 toast(res.message || 'Contraseña actualizada exitosamente.', 'success');
-                this.currentUser = res.user || { ...(this.currentUser || {}), must_change_password: 0 };
+                const updatedUser = res.user || { ...(this.currentUser || {}), must_change_password: 0 };
+                updatedUser.must_change_password = 0;
+                this.currentUser = updatedUser;
+                if (typeof StaticStore !== 'undefined') {
+                    StaticStore.setCurrentUser(this.currentUser);
+                }
                 const modalRoot = document.getElementById('modal-root');
                 if (modalRoot) modalRoot.innerHTML = '';
                 SPA.init(this.currentUser);
@@ -267,9 +277,13 @@ const Auth = {
             Sound.playClick();
             await API.logout();
             this.currentUser = null;
+            if (typeof StaticStore !== 'undefined') {
+                StaticStore.logout();
+            }
             toast('Sesión cerrada correctamente.', 'success');
             this.renderLogin();
         } catch (err) {
+            this.currentUser = null;
             this.renderLogin();
         }
     }

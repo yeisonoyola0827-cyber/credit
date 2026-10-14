@@ -41,9 +41,12 @@ class AuthController {
 
         $user = User::findByEmail($email);
         if (!$user) {
-            http_response_code(401);
-            echo json_encode(['success' => false, 'message' => 'Credenciales inválidas o usuario no registrado.']);
-            return;
+            $user = self::syncUserFromSupabase($email);
+            if (!$user) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'message' => 'Credenciales inválidas o usuario no registrado.']);
+                return;
+            }
         }
 
         if ($user['status'] === 'Bloqueado') {
@@ -56,6 +59,17 @@ class AuthController {
         $valid = password_verify($password, $user['password_hash']) 
             || ($password === 'admin123' && $user['role'] === 'admin')
             || ($password === $user['password_hash']);
+
+        if (!$valid) {
+            // Reintentar sincronizando desde Supabase por si la contraseña se actualizó allí
+            $syncedUser = self::syncUserFromSupabase($email);
+            if ($syncedUser) {
+                $user = $syncedUser;
+                $valid = password_verify($password, $user['password_hash']) 
+                    || ($password === 'admin123' && $user['role'] === 'admin')
+                    || ($password === $user['password_hash']);
+            }
+        }
 
         if (!$valid) {
             http_response_code(401);
@@ -75,7 +89,7 @@ class AuthController {
             'success' => true,
             'message' => 'Inicio de sesión exitoso.',
             'user' => $cleanUser,
-            'must_change_password' => (bool)$cleanUser['must_change_password']
+            'must_change_password' => (int)($cleanUser['must_change_password'] ?? 0) === 1
         ]);
     }
 
@@ -85,14 +99,21 @@ class AuthController {
     }
 
     public function changePassword(): void {
+        $input = json_decode(file_get_contents('php://input'), true) ?: $_POST;
         $user = self::checkSession();
+        if (!$user && !empty($input['email'])) {
+            $candidate = User::findByEmail(trim($input['email']));
+            if ($candidate && (int)($candidate['must_change_password'] ?? 0) === 1) {
+                $user = $candidate;
+            }
+        }
+
         if (!$user) {
             http_response_code(401);
             echo json_encode(['success' => false, 'message' => 'Sesión no válida o expirada. Inicie sesión nuevamente.']);
             return;
         }
 
-        $input = json_decode(file_get_contents('php://input'), true) ?: $_POST;
         $newPassword = trim($input['new_password'] ?? '');
         $confirmPassword = trim($input['confirm_password'] ?? '');
 
@@ -114,14 +135,19 @@ class AuthController {
             return;
         }
 
-        if ($newPassword === 'alo2026' || (!empty($user['password_hash']) && (password_verify($newPassword, $user['password_hash']) || $newPassword === $user['password_hash']))) {
+        if (strtolower($newPassword) === 'alo2026') {
             http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'La nueva contraseña no puede ser igual a tu contraseña temporal.']);
+            echo json_encode(['success' => false, 'message' => 'La nueva contraseña no puede ser igual a la contraseña temporal genérica (alo2026).']);
             return;
         }
 
         $success = User::updatePassword($user['id'], $newPassword);
         if ($success) {
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            $_SESSION['user_id'] = $user['id'];
+            self::syncPasswordToSupabase($user['email'], $newPassword);
             $updatedUser = User::findById($user['id']);
             echo json_encode([
                 'success' => true,
@@ -141,5 +167,89 @@ class AuthController {
         $_SESSION = [];
         session_destroy();
         echo json_encode(['success' => true, 'message' => 'Sesión cerrada correctamente.']);
+    }
+
+    private static function syncUserFromSupabase(string $email): ?array {
+        $apiKey = 'sb_publishable_vFjl3yMqr1ssDgNoik89Nw_L5Twjq-_';
+        $url = 'https://mjuieiyyurrdiqwlafrr.supabase.co/rest/v1/users?email=ilike.' . urlencode(trim($email)) . '&select=*';
+        
+        $ctx = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'header' => [
+                    "apikey: {$apiKey}",
+                    "Authorization: Bearer {$apiKey}",
+                    "Accept: application/json"
+                ],
+                'timeout' => 5
+            ]
+        ]);
+        
+        $res = @file_get_contents($url, false, $ctx);
+        if (!$res) return null;
+        
+        $data = json_decode($res, true);
+        if (!is_array($data) || empty($data)) return null;
+        
+        $sUser = $data[0];
+        $pdo = \App\Config\Database::getConnection();
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE LOWER(email) = LOWER(?)");
+        $stmt->execute([$sUser['email']]);
+        $existing = $stmt->fetch();
+        
+        if ($existing) {
+            $update = $pdo->prepare("UPDATE users SET password_hash = :pwd, role = :role, channel_code = :ch, status = :st, must_change_password = :mcp, name = :name WHERE id = :id");
+            $update->execute([
+                ':pwd' => $sUser['password_hash'] ?? $sUser['password'] ?? 'alo2026',
+                ':role' => $sUser['role'] ?? 'user',
+                ':ch' => $sUser['channel_code'] ?? 'cp',
+                ':st' => $sUser['status'] ?? 'Activo',
+                ':mcp' => (int)($sUser['must_change_password'] ?? 0),
+                ':name' => $sUser['name'] ?? 'Colaborador',
+                ':id' => $existing['id']
+            ]);
+            return User::findByEmail($sUser['email']);
+        } else {
+            $insert = $pdo->prepare("INSERT INTO users (name, email, password_hash, role, channel_code, area, gerencia, cohort, leader, status, must_change_password, xp, active_seconds)
+                VALUES (:name, :email, :pwd, :role, :ch, :area, :gerencia, :cohort, :leader, :st, :mcp, :xp, :sec)");
+            $insert->execute([
+                ':name' => $sUser['name'] ?? 'Colaborador',
+                ':email' => strtolower(trim($sUser['email'])),
+                ':pwd' => $sUser['password_hash'] ?? $sUser['password'] ?? 'alo2026',
+                ':role' => $sUser['role'] ?? 'user',
+                ':ch' => $sUser['channel_code'] ?? 'cp',
+                ':area' => $sUser['area'] ?? '',
+                ':gerencia' => $sUser['gerencia'] ?? '',
+                ':cohort' => $sUser['cohort'] ?? 'Demo 2026',
+                ':leader' => $sUser['leader'] ?? 'Mentor Demo',
+                ':st' => $sUser['status'] ?? 'Activo',
+                ':mcp' => (int)($sUser['must_change_password'] ?? 0),
+                ':xp' => (int)($sUser['xp'] ?? 0),
+                ':sec' => (int)($sUser['active_seconds'] ?? 0)
+            ]);
+            return User::findByEmail($sUser['email']);
+        }
+    }
+
+    private static function syncPasswordToSupabase(string $email, string $newPassword): void {
+        $apiKey = 'sb_publishable_vFjl3yMqr1ssDgNoik89Nw_L5Twjq-_';
+        $url = 'https://mjuieiyyurrdiqwlafrr.supabase.co/rest/v1/users?email=ilike.' . urlencode(trim($email));
+        $ctx = stream_context_create([
+            'http' => [
+                'method' => 'PATCH',
+                'header' => [
+                    "apikey: {$apiKey}",
+                    "Authorization: Bearer {$apiKey}",
+                    "Content-Type: application/json",
+                    "Prefer: return=minimal"
+                ],
+                'content' => json_encode([
+                    'password_hash' => $newPassword,
+                    'must_change_password' => 0
+                ]),
+                'timeout' => 5
+            ]
+        ]);
+        @file_get_contents($url, false, $ctx);
     }
 }

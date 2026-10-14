@@ -3,7 +3,9 @@ const API = {
     isStatic: (typeof window !== 'undefined' && (
         window.FORCE_STATIC_MODE === true ||
         window.location.protocol === 'file:' ||
-        window.location.hostname.includes('github.io')
+        window.location.hostname.includes('github.io') ||
+        window.location.hostname.includes('githubpreview.dev') ||
+        !!localStorage.getItem('escuela_alo_session_user')
     )),
 
     async request(url, options = {}) {
@@ -112,7 +114,15 @@ const API = {
     login(email, password) { return this.isStatic ? this.dispatchStatic('/api/login', { method: 'POST', body: { email, password } }) : this.request('/api/login', { method: 'POST', body: { email, password } }); },
     quickLogin(email) { return this.isStatic ? this.dispatchStatic('/api/quick-login', { method: 'POST', body: { email } }) : this.request('/api/quick-login', { method: 'POST', body: { email } }); },
     changePassword(new_password, confirm_password) { return this.isStatic ? this.dispatchStatic('/api/change-password', { method: 'POST', body: { new_password, confirm_password } }) : this.request('/api/change-password', { method: 'POST', body: { new_password, confirm_password } }); },
-    logout() { return this.isStatic ? this.dispatchStatic('/api/logout', { method: 'POST' }) : this.request('/api/logout', { method: 'POST' }); },
+    async logout() {
+        if (typeof StaticStore !== 'undefined') {
+            StaticStore.logout();
+        }
+        if (typeof window !== 'undefined' && !window.FORCE_STATIC_MODE && window.location.protocol !== 'file:' && !window.location.hostname.includes('github.io')) {
+            this.isStatic = false;
+        }
+        return this.isStatic ? this.dispatchStatic('/api/logout', { method: 'POST' }) : this.request('/api/logout', { method: 'POST' }).catch(() => ({ success: true }));
+    },
 
     getCourses() { return this.isStatic ? this.dispatchStatic('/api/courses') : this.request('/api/courses'); },
     getCourse(id) { return this.isStatic ? this.dispatchStatic(`/api/courses/${id}`) : this.request(`/api/courses/${id}`); },
@@ -165,7 +175,7 @@ const SupabaseStore = {
 
     async login(email, password) {
         try {
-            const rows = await this.query('users', `?email=eq.${encodeURIComponent(email.trim().toLowerCase())}&select=*`);
+            const rows = await this.query('users', `?email=ilike.${encodeURIComponent(email.trim())}&select=*`);
             if (rows && rows.length > 0) {
                 const u = rows[0];
                 if (u.status === 'Bloqueado') throw new Error('Tu usuario se encuentra bloqueado por la administración.');
@@ -173,8 +183,10 @@ const SupabaseStore = {
                 if (!valid) {
                     throw new Error('Contraseña errada. Por favor verifica tu contraseña e intenta nuevamente.');
                 }
+                const mustChange = Number(u.must_change_password) === 1 || u.must_change_password === true;
+                u.must_change_password = mustChange ? 1 : 0;
                 StaticStore.setCurrentUser(u);
-                return { success: true, message: `Bienvenido(a), ${u.name}.`, user: u, must_change_password: !!u.must_change_password };
+                return { success: true, message: `Bienvenido(a), ${u.name || 'Colaborador'}.`, user: u, must_change_password: mustChange };
             } else {
                 throw new Error('Credenciales inválidas o usuario no registrado.');
             }
@@ -187,7 +199,7 @@ const SupabaseStore = {
 
     async changePassword(new_pwd, confirm_pwd) {
         const u = StaticStore.getCurrentUser();
-        if (!u || !u.id) {
+        if (!u || (!u.id && !u.email)) {
             throw new Error('Sesión no válida o expirada. Por favor inicia sesión nuevamente.');
         }
         if (!new_pwd || !confirm_pwd) {
@@ -199,12 +211,13 @@ const SupabaseStore = {
         if (new_pwd !== confirm_pwd) {
             throw new Error('Las contraseñas no coinciden. Por favor verifica que ambas sean idénticas.');
         }
-        if (new_pwd === 'alo2026' || (u.password_hash && u.password_hash === new_pwd) || (u.password && u.password === new_pwd)) {
-            throw new Error('La nueva contraseña no puede ser igual a tu contraseña temporal.');
+        if (new_pwd.toLowerCase() === 'alo2026') {
+            throw new Error('La nueva contraseña no puede ser igual a la contraseña temporal genérica (alo2026).');
         }
 
         try {
-            await this.query('users', `?id=eq.${u.id}`, {
+            const filter = (u.email) ? `?email=ilike.${encodeURIComponent(u.email.trim())}` : `?id=eq.${u.id}`;
+            await this.query('users', filter, {
                 method: 'PATCH',
                 body: {
                     password_hash: new_pwd,
@@ -228,6 +241,19 @@ const SupabaseStore = {
                     StaticStore.save(db);
                 }
             } catch(e){}
+
+            // Intentar notificar a backend PHP si está corriendo
+            if (typeof fetch !== 'undefined' && window.location.protocol !== 'file:') {
+                try {
+                    const baseUrl = window.APP_BASE_URL || '';
+                    const phpEndpoint = (baseUrl && baseUrl !== '.') ? (baseUrl.replace(/\/+$/, '') + '/api/change-password') : 'api/change-password';
+                    fetch(phpEndpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify({ email: u.email, new_password: new_pwd, confirm_password: confirm_pwd })
+                    }).catch(() => {});
+                } catch(e){}
+            }
 
             return {
                 success: true,
@@ -796,8 +822,8 @@ const StaticStore = {
         if (!new_pwd || !confirm_pwd) throw new Error('Por favor completa todos los campos requeridos.');
         if (new_pwd.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres.');
         if (new_pwd !== confirm_pwd) throw new Error('Las contraseñas no coinciden. Por favor verifica que ambas sean idénticas.');
-        if (new_pwd === 'alo2026' || (u.password && u.password === new_pwd) || (u.password_hash && u.password_hash === new_pwd)) {
-            throw new Error('La nueva contraseña no puede ser igual a tu contraseña temporal.');
+        if (new_pwd.toLowerCase() === 'alo2026') {
+            throw new Error('La nueva contraseña no puede ser igual a la contraseña temporal genérica (alo2026).');
         }
 
         const db = this.load();
